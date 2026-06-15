@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Saneamiento — ORFEL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>tailwind.config = { darkMode:'class' }</script>
+  <style>
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn .3s ease both; }
+    @keyframes pulse-mic { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 12px rgba(239,68,68,0)} }
+    .mic-active { animation: pulse-mic 1.2s ease-in-out infinite; }
+    .tab-btn { border-bottom: 2px solid transparent; }
+    .tab-btn.active { border-color: #3b82f6; color: #3b82f6; font-weight:600; }
+    .dark .tab-btn.active { border-color:#60a5fa; color:#60a5fa; }
+    input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+    .dark input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+    @media print { .no-print { display:none!important; } }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors min-h-screen">
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="fixed inset-0 bg-gray-950/95 backdrop-blur flex items-center justify-center z-50">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-6">
+      <img id="loginLogo" src="logo_orfel.jpg" alt="ORFEL" class="h-16 w-auto object-contain mx-auto mb-4">
+      <h2 class="text-2xl font-bold">Control de Saneamiento</h2>
+      <p class="text-sm text-gray-500 mt-1">Ingrese sus credenciales</p>
+    </div>
+    <div class="space-y-3">
+      <input id="loginUser" type="text" placeholder="Usuario" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+      <input id="loginPass" type="password" placeholder="Contraseña" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+      <p id="loginErr" class="text-red-500 text-xs hidden">Credenciales incorrectas</p>
+      <button onclick="intentarLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">Ingresar</button>
+    </div>
+    <p class="text-center text-xs text-gray-400 mt-4">
+      <a href="index.html" class="hover:text-blue-500 transition-colors">← Volver al inicio</a>
+    </p>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="max-w-6xl mx-auto px-4 pb-16">
+
+  <!-- Header -->
+  <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 shadow-sm no-print mb-4">
+    <div class="flex items-center justify-between gap-4 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html"><img src="logo_orfel.jpg" alt="ORFEL" class="h-9 w-auto object-contain"></a>
+        <div class="hidden sm:block">
+          <p class="text-xs text-gray-500">Control Diario</p>
+          <p class="text-sm font-bold">Saneamiento de Áreas</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 text-sm flex-wrap justify-end">
+        <span id="dispNombre" class="font-semibold text-gray-700 dark:text-gray-300"></span>
+        <span id="dispRol" class="text-xs font-bold px-2 py-0.5 rounded-full"></span>
+        <input type="date" id="fechaActual" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+        <button onclick="toggleDark()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors" title="Tema">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+        <button onclick="logout()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">Salir</button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-1 px-4 overflow-x-auto">
+      <button class="tab-btn active text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors whitespace-nowrap" onclick="switchTab('inspeccion',this)">Inspección</button>
+      <button class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors whitespace-nowrap" onclick="switchTab('reporte',this)">Reporte</button>
+      <button id="tabAdmin" class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-500 transition-colors whitespace-nowrap hidden" onclick="switchTab('admin',this)">Administración</button>
+    </div>
+  </header>
+
+  <!-- TAB: INSPECCION -->
+  <div id="tab-inspeccion" class="fade-in">
+
+    <!-- Info Formato -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <div class="flex flex-wrap gap-4 items-end justify-between">
+        <div class="flex gap-4 flex-wrap">
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Código Formato</label>
+            <input id="codigoFormato" type="text" placeholder="PO-PHS-f-01" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Vigencia</label>
+            <input id="vigenciaFormato" type="text" placeholder="2025" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        <div class="flex gap-2 no-print">
+          <button onclick="limpiarFormulario()" class="flex items-center gap-1.5 px-3 py-2 text-sm border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            Nueva
+          </button>
+          <button onclick="guardarInspeccion()" class="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Guardar Inspección
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progreso + Resumen -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <div class="h-2 bg-gray-100 dark:bg-gray-800 rounded-full mb-3 overflow-hidden">
+        <div id="progressBar" class="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all duration-500" style="width:0%"></div>
+      </div>
+      <div class="grid grid-cols-4 gap-2 text-center">
+        <div><div id="cConformes" class="text-2xl font-bold text-green-600">0</div><div class="text-xs text-gray-500">Conformes</div></div>
+        <div><div id="cNoConformes" class="text-2xl font-bold text-red-600">0</div><div class="text-xs text-gray-500">No Conf.</div></div>
+        <div><div id="cPendientes" class="text-2xl font-bold text-amber-500">0</div><div class="text-xs text-gray-500">Pendientes</div></div>
+        <div><div id="cTotal" class="text-2xl font-bold text-gray-700 dark:text-gray-300">0</div><div class="text-xs text-gray-500">Total</div></div>
+      </div>
+    </div>
+
+    <!-- Control por Voz -->
+    <div id="vozPanel" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm no-print">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Control por Voz <span class="text-xs font-normal text-gray-400">(Chrome Android)</span></p>
+          <p id="vozStatus" class="text-xs text-gray-400 mt-0.5">Di: "conforme" · "no conforme" · "siguiente" · "guardar"</p>
+        </div>
+        <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+          Activar Voz
+        </button>
+      </div>
+    </div>
+
+    <!-- Áreas -->
+    <h2 class="text-base font-bold text-gray-700 dark:text-gray-300 mb-3 px-1">Áreas de Inspección</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4" id="areasContainer"></div>
+
+    <!-- Observaciones -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Observaciones y Acciones Correctivas</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Observaciones Generales</label>
+          <textarea id="observaciones" rows="3" placeholder="Ingrese observaciones generales..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Acciones Correctivas</label>
+          <textarea id="accionesCorrectivas" rows="3" placeholder="Describa las acciones correctivas..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Firmas -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Firmas</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div><label class="text-xs text-gray-500 block mb-1">Elaborado por</label><input id="elaboradoPor" type="text" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
+        <div><label class="text-xs text-gray-500 block mb-1">Revisado por</label><input id="revisadoPor" type="text" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
+        <div><label class="text-xs text-gray-500 block mb-1">Aprobado por</label><input id="aprobadoPor" type="text" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: REPORTE -->
+  <div id="tab-reporte" class="hidden fade-in">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm no-print">
+      <div class="flex flex-wrap gap-3">
+        <button onclick="exportarPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Descargar PDF
+        </button>
+      </div>
+    </div>
+    <div id="reporteContenido" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-sm"></div>
+  </div>
+
+  <!-- TAB: ADMIN -->
+  <div id="tab-admin" class="hidden fade-in">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm">
+      <h3 class="font-bold mb-3 text-gray-700 dark:text-gray-300">Administración del Sistema</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 rounded-xl p-4">
+          <h4 class="font-semibold text-blue-800 dark:text-blue-300 mb-1">Simulación</h4>
+          <p class="text-sm text-blue-600 dark:text-blue-400 mb-3">Marca todos los elementos como Conformes para pruebas.</p>
+          <button onclick="simularTodo()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Ejecutar Simulación</button>
+        </div>
+        <div class="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+          <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Desbloquear</h4>
+          <p class="text-sm text-gray-500 mb-3">Permite editar una inspección ya guardada.</p>
+          <button onclick="desbloquear()" class="bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Desbloquear Inspección</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Botón volver arriba -->
+<button id="btnTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" class="fixed bottom-6 right-6 w-10 h-10 bg-blue-600 text-white rounded-full shadow-lg items-center justify-center hidden z-20 no-print hover:bg-blue-700 transition-colors">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+</button>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden">
+  <div class="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium px-5 py-3 rounded-xl shadow-xl flex items-center gap-2">
+    <span id="toastIcon"></span><span id="toastMsg"></span>
+  </div>
+</div>
+
+<script>
+// ─── DATOS ───────────────────────────────────────────────────────────────────
+const AREAS = [
+  { id:'produccion', nombre:'ÁREA DE PRODUCCIÓN', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'},
+      {id:'ventanas',nombre:'Ventanas / Mallas'},{id:'puertas',nombre:'Puertas'},
+      {id:'luminarias',nombre:'Luminarias'},{id:'esquinas',nombre:'Esquinas sanitarias'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'horno-piso',nombre:'Horno de Piso'},{id:'horno-rot1',nombre:'Horno Rotativo 1'},
+      {id:'horno-rot2',nombre:'Horno Rotativo 2'},{id:'palas',nombre:'Palas'},{id:'coches',nombre:'Coches'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'enfriado', nombre:'ÁREA DE ENFRIADO', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'},{id:'puertas',nombre:'Puertas'},
+      {id:'luminarias',nombre:'Luminarias'},{id:'esquinas',nombre:'Esquinas sanitarias'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'coches',nombre:'Coches'},{id:'bandejas',nombre:'Bandejas'},{id:'extractor',nombre:'Extractor'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'envasado', nombre:'ÁREA DE ENVASADO', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'},{id:'lavadero',nombre:'Lavadero'},
+      {id:'puertas',nombre:'Puertas'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'esquinas',nombre:'Esquinas sanitarias'},{id:'ventanas',nombre:'Ventanas / Mallas'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'mesas',nombre:'Mesas'},{id:'coches-bandejas',nombre:'Coches y Bandejas'},
+      {id:'microondas',nombre:'Horno microondas'},{id:'coches-traslado',nombre:'Coches de Traslado'},
+      {id:'estantes',nombre:'Estantes'},{id:'cortadoras',nombre:'Cortadoras'},
+      {id:'utensilios',nombre:'Utensilios (bowls, espátulas, cuchillos, etc.)'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'sshh', nombre:'SS.HH., VESTUARIOS Y DUCHAS', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'puertas-ventanas',nombre:'Puertas y Ventanas'},{id:'paredes-techo',nombre:'Paredes y Techo'},
+      {id:'duchas',nombre:'Duchas'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'dispensadores',nombre:'Dispensadores de papel, gel y jabón'},
+      {id:'lavaderos',nombre:'Lavaderos'},{id:'inodoros',nombre:'Inodoros'},{id:'casilleros',nombre:'Casilleros'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'almacen-limpieza', nombre:'ALMACÉN DE LIMPIEZA', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'puertas',nombre:'Puertas'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'andamios',nombre:'Andamios'},{id:'parihuelas',nombre:'Parihuelas'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'residuos', nombre:'ACOPIO DE RESIDUOS', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'puertas',nombre:'Puertas'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'contenedor',nombre:'Contenedor'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'tachos',nombre:'Tachos'},
+      {id:'recogedores',nombre:'Recogedores'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'almacen-envases', nombre:'ALMACÉN DE ENVASES', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'puertas',nombre:'Puertas'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'},{id:'ventanas',nombre:'Ventanas / Mallas'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'luces',nombre:'Luces'},{id:'termohigrometro',nombre:'Termohigrómetro'},{id:'andamios',nombre:'Andamios'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'recogedores',nombre:'Recogedores'},
+      {id:'tachos',nombre:'Tachos'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'almacen-pt', nombre:'ALMACÉN DE PRODUCTO TERMINADO', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'puertas',nombre:'Puertas'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'ventanas',nombre:'Ventanas / Mallas'},{id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'luces',nombre:'Luces'},{id:'termohigrometro',nombre:'Termohigrómetro'},
+      {id:'andamios',nombre:'Andamios'},{id:'parihuelas',nombre:'Parihuelas'},{id:'jabas',nombre:'Jabas'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'recogedores',nombre:'Recogedores'},
+      {id:'tachos',nombre:'Tachos'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]},
+  { id:'despacho', nombre:'ÁREA DE DESPACHO', categorias:[
+    { id:'infra', nombre:'Infraestructura', elementos:[
+      {id:'pisos',nombre:'Pisos'},{id:'puerta',nombre:'Puerta'},{id:'luminarias',nombre:'Luminarias'},
+      {id:'paredes',nombre:'Paredes'},{id:'techo',nombre:'Techo'}
+    ]},
+    { id:'equipos', nombre:'Equipos, Accesorios e Instrumentos', elementos:[
+      {id:'lavadero',nombre:'Lavadero'}
+    ]},
+    { id:'limpieza', nombre:'Materiales y Accesorios de Limpieza', elementos:[
+      {id:'escobas',nombre:'Escobas'},{id:'recogedores',nombre:'Recogedores'},
+      {id:'tachos',nombre:'Tachos'},{id:'residuos',nombre:'Eliminación de Residuos'}
+    ]}
+  ]}
+];
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+const USUARIOS = {
+  admin: { pass:'admin123', nombre:'Administrador', rol:'admin' },
+  jefe:  { pass:'jefe123',  nombre:'Jefe de Planta', rol:'jefe'  }
+};
+let usuario = null;
+
+function intentarLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  if (USUARIOS[u] && USUARIOS[u].pass === p) {
+    usuario = { ...USUARIOS[u], user: u };
+    localStorage.setItem('authOrfel', JSON.stringify(usuario));
+    document.getElementById('loginOverlay').style.display = 'none';
+    iniciarApp();
+  } else {
+    const err = document.getElementById('loginErr');
+    err.classList.remove('hidden');
+    setTimeout(() => err.classList.add('hidden'), 3000);
+  }
+}
+function logout() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem('authOrfel');
+  location.reload();
+}
+function checkAuth() {
+  const saved = localStorage.getItem('authOrfel');
+  if (saved) { usuario = JSON.parse(saved); document.getElementById('loginOverlay').style.display = 'none'; iniciarApp(); }
+}
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let estado = { areas: JSON.parse(JSON.stringify(AREAS)), bloqueado: false, fecha: '' };
+let vozActiva = false, recognition = null;
+let elementoActual = { aIdx:0, cIdx:0, eIdx:0 };
+let LOGO_BASE64 = '';
+
+function iniciarApp() {
+  // Mostrar usuario
+  document.getElementById('dispNombre').textContent = usuario.nombre;
+  const rolEl = document.getElementById('dispRol');
+  rolEl.textContent = usuario.rol === 'admin' ? 'ADMIN' : 'PLANTA';
+  rolEl.className = 'text-xs font-bold px-2 py-0.5 rounded-full ' + (usuario.rol==='admin' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800');
+  if (usuario.rol === 'admin') document.getElementById('tabAdmin').classList.remove('hidden');
+
+  // Fecha
+  const fecha = new Date().toISOString().split('T')[0];
+  document.getElementById('fechaActual').value = fecha;
+
+  // Cargar datos guardados
+  const guardado = localStorage.getItem('controlSaneamiento');
+  if (guardado) {
+    const d = JSON.parse(guardado);
+    if (d.fecha === fecha || usuario.rol === 'admin') {
+      estado = d;
+      if (d.observaciones) document.getElementById('observaciones').value = d.observaciones;
+      if (d.accionesCorrectivas) document.getElementById('accionesCorrectivas').value = d.accionesCorrectivas;
+      if (d.codigoFormato) document.getElementById('codigoFormato').value = d.codigoFormato;
+      if (d.vigenciaFormato) document.getElementById('vigenciaFormato').value = d.vigenciaFormato;
+      if (d.elaboradoPor) document.getElementById('elaboradoPor').value = d.elaboradoPor;
+      if (d.revisadoPor) document.getElementById('revisadoPor').value = d.revisadoPor;
+      if (d.aprobadoPor) document.getElementById('aprobadoPor').value = d.aprobadoPor;
+    }
+  } else {
+    estado.fecha = fecha;
+  }
+  if (estado.bloqueado && usuario.rol !== 'admin') bloquearUI();
+
+  // Logo para PDF
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    try {
+      const c = document.createElement('canvas');
+      c.width = this.width; c.height = this.height;
+      c.getContext('2d').drawImage(this, 0, 0);
+      LOGO_BASE64 = c.toDataURL('image/jpeg');
+    } catch(e) {}
+  };
+  img.src = 'logo_orfel.jpg';
+
+  renderAreas();
+  actualizarResumen();
+  initVoz();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderAreas() {
+  const container = document.getElementById('areasContainer');
+  container.innerHTML = '';
+  estado.areas.forEach((area, aIdx) => {
+    const card = document.createElement('div');
+    card.className = 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden';
+    card.innerHTML = `
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+        <h3 class="text-sm font-bold text-gray-800 dark:text-gray-200">${area.nombre}</h3>
+      </div>
+      <div class="p-4 space-y-4">
+        ${area.categorias.map((cat, cIdx) => `
+          <div>
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">${cat.nombre}</p>
+            <div class="space-y-2">
+              ${cat.elementos.map((el, eIdx) => renderElemento(aIdx, cIdx, eIdx, el)).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function renderElemento(aIdx, cIdx, eIdx, el) {
+  const disabled = estado.bloqueado && usuario.rol !== 'admin' ? 'opacity-50 pointer-events-none' : '';
+  const isVozFocus = vozActiva && elementoActual.aIdx===aIdx && elementoActual.cIdx===cIdx && elementoActual.eIdx===eIdx;
+  const focusBorder = isVozFocus ? 'ring-2 ring-blue-500' : '';
+  const ncBlock = el.estado === 'no-conforme' ? `
+    <div class="mt-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg space-y-2">
+      <div><label class="text-[10px] font-bold text-red-600 uppercase block mb-1">Observación</label>
+        <textarea class="w-full text-xs border border-red-200 dark:border-red-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none" rows="2"
+          placeholder="Describa el hallazgo..." onchange="updateNC(${aIdx},${cIdx},${eIdx},'obs',this.value)">${el.nc_obs||''}</textarea></div>
+      <div><label class="text-[10px] font-bold text-red-600 uppercase block mb-1">Acción Correctiva</label>
+        <textarea class="w-full text-xs border border-red-200 dark:border-red-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none" rows="2"
+          placeholder="Describa la acción tomada..." onchange="updateNC(${aIdx},${cIdx},${eIdx},'acc',this.value)">${el.nc_acc||''}</textarea></div>
+    </div>` : '';
+  return `
+    <div id="el-${aIdx}-${cIdx}-${eIdx}" class="rounded-lg p-2 ${focusBorder} ${disabled} transition-all">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-xs text-gray-700 dark:text-gray-300 flex-1">${el.nombre}</span>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button onclick="setEstado(${aIdx},${cIdx},${eIdx},'conforme')"
+            class="px-2 py-1 text-xs rounded-lg font-semibold transition-colors ${el.estado==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-green-50 dark:hover:bg-green-950'}">✓</button>
+          <button onclick="setEstado(${aIdx},${cIdx},${eIdx},'no-conforme')"
+            class="px-2 py-1 text-xs rounded-lg font-semibold transition-colors ${el.estado==='no-conforme'?'bg-red-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-red-50 dark:hover:bg-red-950'}">✗</button>
+          <button onclick="setEstado(${aIdx},${cIdx},${eIdx},'pendiente')"
+            class="px-2 py-1 text-xs rounded-lg font-semibold transition-colors ${el.estado==='pendiente'?'bg-gray-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}">○</button>
+          <span class="text-[10px] font-semibold ml-1 ${el.estado==='conforme'?'text-green-600':el.estado==='no-conforme'?'text-red-600':'text-amber-500'}">${el.estado==='conforme'?'Conf.':el.estado==='no-conforme'?'No Conf.':'Pend.'}</span>
+        </div>
+      </div>
+      ${ncBlock}
+    </div>`;
+}
+
+function setEstado(aIdx, cIdx, eIdx, estado_) {
+  if (estado.bloqueado && usuario.rol !== 'admin') { toast('Bloqueado','Inspección ya guardada'); return; }
+  const el = estado.areas[aIdx].categorias[cIdx].elementos[eIdx];
+  el.estado = estado_;
+  if (estado_ !== 'no-conforme') { delete el.nc_obs; delete el.nc_acc; }
+  guardarSilencioso();
+  actualizarResumen();
+  renderAreas();
+}
+
+function updateNC(aIdx, cIdx, eIdx, tipo, val) {
+  const el = estado.areas[aIdx].categorias[cIdx].elementos[eIdx];
+  if (tipo==='obs') el.nc_obs = val; else el.nc_acc = val;
+  guardarSilencioso();
+}
+
+function actualizarResumen() {
+  let c=0, nc=0, p=0;
+  estado.areas.forEach(a => a.categorias.forEach(cat => cat.elementos.forEach(el => {
+    if (el.estado==='conforme') c++;
+    else if (el.estado==='no-conforme') nc++;
+    else p++;
+  })));
+  const total = c+nc+p;
+  document.getElementById('cConformes').textContent = c;
+  document.getElementById('cNoConformes').textContent = nc;
+  document.getElementById('cPendientes').textContent = p;
+  document.getElementById('cTotal').textContent = total;
+  document.getElementById('progressBar').style.width = total ? Math.round(c/total*100)+'%' : '0%';
+}
+
+// ─── VOZ ──────────────────────────────────────────────────────────────────────
+function initVoz() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { document.getElementById('vozPanel').innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Control por voz no disponible en este navegador. Usa Chrome en Android.</p>'; return; }
+  recognition = new SR();
+  recognition.lang = 'es-PE';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = (e) => procesarComando(e.results[0][0].transcript.toLowerCase().trim());
+  recognition.onerror = () => { if (vozActiva) setTimeout(escuchar, 800); };
+  recognition.onend = () => { if (vozActiva) setTimeout(escuchar, 400); };
+}
+
+function toggleVoz() {
+  if (!recognition) return;
+  vozActiva = !vozActiva;
+  const btn = document.getElementById('micBtn');
+  if (vozActiva) {
+    btn.className = 'flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors mic-active';
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Escuchando...';
+    setVozStatus('Esperando comando...');
+    escuchar();
+  } else {
+    try { recognition.stop(); } catch(e) {}
+    btn.className = 'flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors';
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Activar Voz';
+    setVozStatus('Di: "conforme" · "no conforme" · "siguiente" · "guardar"');
+  }
+  renderAreas();
+}
+function escuchar() { try { recognition.start(); } catch(e) {} }
+function setVozStatus(msg) { document.getElementById('vozStatus').textContent = msg; }
+
+function procesarComando(cmd) {
+  const el = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
+  const areaName = estado.areas[elementoActual.aIdx]?.nombre || '';
+  const elName = el?.nombre || '';
+
+  if (cmd.includes('conforme') && !cmd.includes('no')) {
+    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'conforme');
+    setVozStatus(`✓ Conforme: ${elName}`);
+    avanzar();
+  } else if (cmd.includes('no conforme') || cmd.includes('no conf') || cmd.includes('falla') || cmd.includes('mal')) {
+    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'no-conforme');
+    setVozStatus(`✗ No Conforme: ${elName}`);
+    avanzar();
+  } else if (cmd.includes('pendiente') || cmd.includes('skip') || cmd.includes('saltar')) {
+    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'pendiente');
+    setVozStatus(`○ Pendiente: ${elName}`);
+    avanzar();
+  } else if (cmd.includes('siguiente') || cmd.includes('adelante')) {
+    avanzar();
+    const newEl = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
+    setVozStatus(`→ ${newEl?.nombre || 'Fin'}`);
+  } else if (cmd.includes('anterior') || cmd.includes('atrás') || cmd.includes('atras')) {
+    retroceder();
+    const newEl = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
+    setVozStatus(`← ${newEl?.nombre || ''}`);
+  } else if (cmd.includes('guardar') || cmd.includes('terminar') || cmd.includes('listo')) {
+    guardarInspeccion();
+    setVozStatus('✓ Inspección guardada');
+  } else {
+    setVozStatus(`No entendí: "${cmd}"`);
+  }
+  renderAreas();
+  scrollToElementoActual();
+}
+
+function avanzar() {
+  const area = estado.areas[elementoActual.aIdx];
+  const cat = area.categorias[elementoActual.cIdx];
+  if (elementoActual.eIdx < cat.elementos.length - 1) { elementoActual.eIdx++; return; }
+  if (elementoActual.cIdx < area.categorias.length - 1) { elementoActual.cIdx++; elementoActual.eIdx = 0; return; }
+  if (elementoActual.aIdx < estado.areas.length - 1) { elementoActual.aIdx++; elementoActual.cIdx = 0; elementoActual.eIdx = 0; return; }
+}
+function retroceder() {
+  if (elementoActual.eIdx > 0) { elementoActual.eIdx--; return; }
+  if (elementoActual.cIdx > 0) { elementoActual.cIdx--; elementoActual.eIdx = estado.areas[elementoActual.aIdx].categorias[elementoActual.cIdx].elementos.length - 1; return; }
+  if (elementoActual.aIdx > 0) { elementoActual.aIdx--; const a = estado.areas[elementoActual.aIdx]; elementoActual.cIdx = a.categorias.length-1; elementoActual.eIdx = a.categorias[elementoActual.cIdx].elementos.length-1; }
+}
+function scrollToElementoActual() {
+  const el = document.getElementById(`el-${elementoActual.aIdx}-${elementoActual.cIdx}-${elementoActual.eIdx}`);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+// ─── PERSISTENCIA ─────────────────────────────────────────────────────────────
+function guardarSilencioso() {
+  estado.observaciones = document.getElementById('observaciones').value;
+  estado.accionesCorrectivas = document.getElementById('accionesCorrectivas').value;
+  estado.codigoFormato = document.getElementById('codigoFormato').value;
+  estado.vigenciaFormato = document.getElementById('vigenciaFormato').value;
+  estado.fecha = document.getElementById('fechaActual').value;
+  localStorage.setItem('controlSaneamiento', JSON.stringify(estado));
+}
+function guardarInspeccion() {
+  guardarSilencioso();
+  estado.elaboradoPor = document.getElementById('elaboradoPor').value;
+  estado.revisadoPor = document.getElementById('revisadoPor').value;
+  estado.aprobadoPor = document.getElementById('aprobadoPor').value;
+  estado.bloqueado = true;
+  localStorage.setItem('controlSaneamiento', JSON.stringify(estado));
+  if (usuario.rol !== 'admin') bloquearUI();
+  toast('✓','Inspección guardada y bloqueada');
+  generarReporte();
+}
+function limpiarFormulario() {
+  if (!confirm('¿Iniciar nueva inspección? Se perderán los datos actuales.')) return;
+  localStorage.removeItem('controlSaneamiento');
+  estado = { areas: JSON.parse(JSON.stringify(AREAS)), bloqueado:false, fecha: new Date().toISOString().split('T')[0] };
+  elementoActual = { aIdx:0, cIdx:0, eIdx:0 };
+  ['observaciones','accionesCorrectivas','elaboradoPor','revisadoPor','aprobadoPor'].forEach(id => document.getElementById(id).value = '');
+  renderAreas();
+  actualizarResumen();
+  toast('○','Nueva inspección iniciada');
+}
+function bloquearUI() {
+  document.querySelectorAll('#tab-inspeccion input, #tab-inspeccion textarea, #tab-inspeccion button:not(.no-block)').forEach(el => { el.disabled = true; el.style.opacity = '0.6'; el.style.pointerEvents = 'none'; });
+}
+function desbloquear() {
+  estado.bloqueado = false;
+  guardarSilencioso();
+  document.querySelectorAll('#tab-inspeccion input, #tab-inspeccion textarea, #tab-inspeccion button').forEach(el => { el.disabled = false; el.style.opacity = ''; el.style.pointerEvents = ''; });
+  toast('✓','Inspección desbloqueada (modo admin)');
+}
+function simularTodo() {
+  estado.areas.forEach(a => a.categorias.forEach(c => c.elementos.forEach(e => { e.estado = 'conforme'; delete e.nc_obs; delete e.nc_acc; })));
+  guardarSilencioso();
+  actualizarResumen();
+  renderAreas();
+  toast('✓','Simulación completada — todos conformes');
+}
+
+// ─── REPORTE ──────────────────────────────────────────────────────────────────
+function generarReporte() {
+  let html = '<h3 class="text-base font-bold mb-4 text-blue-600 dark:text-blue-400">Resumen de Inspección</h3>';
+  let total=0, conf=0, nconf=0;
+  estado.areas.forEach(area => {
+    let aHTML = '';
+    area.categorias.forEach(cat => {
+      cat.elementos.forEach(el => {
+        total++;
+        if (el.estado==='conforme') conf++;
+        else if (el.estado==='no-conforme') nconf++;
+        const color = el.estado==='conforme'?'text-green-600':el.estado==='no-conforme'?'text-red-600':'text-amber-500';
+        const icon = el.estado==='conforme'?'✓':el.estado==='no-conforme'?'✗':'○';
+        aHTML += `<div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800 text-sm">
+          <span class="text-gray-700 dark:text-gray-300">${el.nombre}</span>
+          <span class="${color} font-semibold">${icon} ${el.estado}</span></div>`;
+        if (el.nc_obs) aHTML += `<p class="text-xs text-red-500 italic ml-4 mb-1">Obs: ${el.nc_obs}</p>`;
+        if (el.nc_acc) aHTML += `<p class="text-xs text-green-600 italic ml-4 mb-1">Acc: ${el.nc_acc}</p>`;
+      });
+    });
+    if (aHTML) html += `<div class="mb-4"><h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">${area.nombre}</h4>${aHTML}</div>`;
+  });
+  const pct = total ? Math.round(conf/total*100) : 0;
+  const obs = document.getElementById('observaciones').value;
+  const acc = document.getElementById('accionesCorrectivas').value;
+  if (obs) html += `<div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs font-bold text-gray-500 mb-1">OBSERVACIONES</p><p class="text-sm">${obs}</p></div>`;
+  if (acc) html += `<div class="mt-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg"><p class="text-xs font-bold text-green-700 mb-1">ACCIONES CORRECTIVAS</p><p class="text-sm">${acc}</p></div>`;
+  html = `<div class="grid grid-cols-3 gap-4 mb-6"><div class="text-center p-3 bg-green-50 dark:bg-green-950 rounded-xl"><div class="text-2xl font-extrabold text-green-600">${conf}</div><div class="text-xs text-gray-500">Conformes</div></div><div class="text-center p-3 bg-red-50 dark:bg-red-950 rounded-xl"><div class="text-2xl font-extrabold text-red-600">${nconf}</div><div class="text-xs text-gray-500">No Conf.</div></div><div class="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-xl"><div class="text-2xl font-extrabold text-blue-600">${pct}%</div><div class="text-xs text-gray-500">Cumplimiento</div></div></div>` + html;
+  document.getElementById('reporteContenido').innerHTML = html;
+}
+
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const W = doc.internal.pageSize.width, H = doc.internal.pageSize.height, M = 14;
+  let y = 10, pg = 1;
+  const fecha = document.getElementById('fechaActual').value;
+  const codigo = document.getElementById('codigoFormato').value || 'PO-PHS-f-01';
+
+  function header() {
+    if (LOGO_BASE64) try { doc.addImage(LOGO_BASE64,'JPEG',M,8,28,18); } catch(e){}
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(31,41,55);
+    doc.text('Control Diario de Saneamiento', W/2, 15, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(75,85,99);
+    doc.text(`Código: ${codigo}  |  Fecha: ${fecha}  |  Inspector: ${document.getElementById('elaboradoPor').value||'—'}`, W/2, 22, {align:'center'});
+    doc.setDrawColor(229,231,235); doc.line(M,28,W-M,28);
+    y = 35;
+  }
+  function footer() {
+    doc.setFontSize(8); doc.setTextColor(156,163,175);
+    doc.line(M,H-12,W-M,H-12);
+    doc.text(`Página ${pg}  |  ORFEL — Control Higiénico Sanitario`, W/2, H-7, {align:'center'});
+  }
+  function checkY(n=12) { if (y+n > H-18) { footer(); doc.addPage(); pg++; header(); } }
+
+  header();
+  estado.areas.forEach(area => {
+    checkY(12);
+    doc.setFillColor(243,244,246); doc.rect(M,y-5,W-M*2,10,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(31,41,55);
+    doc.text(area.nombre, M+3, y); y+=12;
+    area.categorias.forEach(cat => {
+      checkY(8);
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(55,65,81);
+      doc.text('› '+cat.nombre, M+4, y); y+=6; doc.setFont('helvetica','normal');
+      cat.elementos.forEach(el => {
+        checkY(6);
+        doc.setFontSize(8); doc.setTextColor(75,85,99);
+        doc.text('  • '+el.nombre, M+8, y);
+        const color = el.estado==='conforme'?[22,163,74]:el.estado==='no-conforme'?[220,38,38]:[245,158,11];
+        const label = el.estado==='conforme'?'Conforme':el.estado==='no-conforme'?'No Conforme':'Pendiente';
+        doc.setTextColor(...color); doc.text(label, W-M-2, y, {align:'right'}); y+=5;
+        if (el.nc_obs) { checkY(8); doc.setFontSize(7); doc.setTextColor(185,28,28); const ls=doc.splitTextToSize('  Obs: '+el.nc_obs,W-M*2-20); doc.text(ls,M+12,y); y+=ls.length*4; }
+        if (el.nc_acc) { checkY(8); doc.setFontSize(7); doc.setTextColor(22,101,52); const ls=doc.splitTextToSize('  Acc: '+el.nc_acc,W-M*2-20); doc.text(ls,M+12,y); y+=ls.length*4; }
+      }); y+=3;
+    }); y+=5;
+  });
+
+  const obs = document.getElementById('observaciones').value;
+  const acc = document.getElementById('accionesCorrectivas').value;
+  if (obs||acc) { checkY(30); y+=5; doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(31,41,55); doc.text('Observaciones y Acciones Correctivas', W/2, y, {align:'center'}); doc.line(M,y+4,W-M,y+4); y+=12; }
+  if (obs) { doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('Observaciones:', M,y); y+=5; doc.setFont('helvetica','normal'); const ls=doc.splitTextToSize(obs,W-M*2); doc.setTextColor(75,85,99); doc.text(ls,M,y); y+=ls.length*5+5; }
+  if (acc) { checkY(15); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(31,41,55); doc.text('Acciones Correctivas:', M,y); y+=5; doc.setFont('helvetica','normal'); const ls=doc.splitTextToSize(acc,W-M*2); doc.setTextColor(75,85,99); doc.text(ls,M,y); y+=ls.length*5+8; }
+
+  checkY(45);
+  y+=8; doc.setDrawColor(229,231,235); doc.line(M,y,W-M,y); y+=15;
+  const elab = document.getElementById('elaboradoPor').value || '_____________';
+  const rev  = document.getElementById('revisadoPor').value  || '_____________';
+  const apr  = document.getElementById('aprobadoPor').value  || '_____________';
+  const bw=55, bh=28, gap=(W-M*2-bw*3)/2;
+  [[elab,'Elaborado por',M],[rev,'Revisado por',M+bw+gap],[apr,'Aprobado por',M+(bw+gap)*2]].forEach(([name,label,x]) => {
+    doc.setDrawColor(229,231,235); doc.rect(x,y,bw,bh);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(75,85,99);
+    doc.text(label, x+bw/2, y+8, {align:'center'});
+    doc.setFont('helvetica','bold'); doc.text(name, x+bw/2, y+20, {align:'center'});
+  });
+  footer();
+  doc.save(`Saneamiento-ORFEL-${fecha.replace(/-/g,'')}.pdf`);
+  toast('📄','PDF generado correctamente');
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  ['inspeccion','reporte','admin'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+  document.getElementById('tab-'+id).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (id==='reporte') generarReporte();
+}
+function toggleDark() {
+  const d = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('darkMode', d);
+}
+function toast(icon, msg, dur=3000) {
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), dur);
+}
+window.addEventListener('scroll', () => {
+  document.getElementById('btnTop').style.display = window.scrollY > 300 ? 'flex' : 'none';
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
+checkAuth();
+</script>
+</body>
+</html>

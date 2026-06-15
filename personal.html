@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Higiene del Personal — ORFEL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>tailwind.config = { darkMode:'class' }</script>
+  <style>
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn .3s ease both; }
+    @keyframes pulse-mic { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 12px rgba(239,68,68,0)} }
+    .mic-active { animation: pulse-mic 1.2s ease-in-out infinite; }
+    .tab-btn { border-bottom: 2px solid transparent; }
+    .tab-btn.active { border-color: #22c55e; color: #16a34a; font-weight:600; }
+    .dark .tab-btn.active { border-color:#4ade80; color:#4ade80; }
+    .criteria-btn { transition: all .15s; }
+    .criteria-btn:active { transform: scale(.95); }
+    @media print { .no-print{display:none!important;} }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen transition-colors">
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="fixed inset-0 bg-gray-950/95 backdrop-blur flex items-center justify-center z-50">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4">
+    <div class="text-center mb-6">
+      <img src="logo_orfel.jpg" alt="ORFEL" class="h-16 w-auto object-contain mx-auto mb-4">
+      <h2 class="text-2xl font-bold">Higiene del Personal</h2>
+      <p class="text-sm text-gray-500 mt-1">Ingrese sus credenciales</p>
+    </div>
+    <div class="space-y-3">
+      <input id="loginUser" type="text" placeholder="Usuario" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+      <input id="loginPass" type="password" placeholder="Contraseña" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+      <p id="loginErr" class="text-red-500 text-xs hidden">Credenciales incorrectas</p>
+      <button onclick="intentarLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">Ingresar</button>
+    </div>
+    <p class="text-center text-xs text-gray-400 mt-4"><a href="index.html" class="hover:text-green-500">← Volver al inicio</a></p>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="max-w-5xl mx-auto px-4 pb-16">
+
+  <!-- Header -->
+  <header class="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 shadow-sm no-print mb-4">
+    <div class="flex items-center justify-between gap-4 px-4 py-3">
+      <div class="flex items-center gap-3">
+        <a href="index.html"><img src="logo_orfel.jpg" alt="ORFEL" class="h-9 w-auto object-contain"></a>
+        <div class="hidden sm:block">
+          <p class="text-xs text-gray-500">Control Diario</p>
+          <p class="text-sm font-bold">Higiene del Personal</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="dispNombre" class="text-sm font-semibold text-gray-700 dark:text-gray-300"></span>
+        <input type="date" id="fechaActual" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-green-500">
+        <button onclick="toggleDark()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+        <button onclick="logout()" class="text-xs text-gray-400 hover:text-red-500 transition-colors">Salir</button>
+      </div>
+    </div>
+    <div class="flex gap-1 px-4 overflow-x-auto">
+      <button class="tab-btn active text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('inspeccion',this)">Inspección</button>
+      <button class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('empleados',this)">Empleados</button>
+      <button class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('reporte',this)">Reportes</button>
+    </div>
+  </header>
+
+  <!-- ═══ TAB: INSPECCIÓN ═══ -->
+  <div id="tab-inspeccion" class="fade-in">
+
+    <!-- Panel Voz -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm no-print">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Control por Voz <span class="text-xs font-normal text-gray-400">(Chrome · Android)</span></p>
+          <p id="vozStatus" class="text-xs text-gray-400 mt-0.5">Comandos: "conforme" · "no conforme" · "no aplica" · "siguiente empleado" · "guardar"</p>
+        </div>
+        <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+          Activar Voz
+        </button>
+      </div>
+    </div>
+
+    <!-- Selector de empleado -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-48">
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Empleado a Inspeccionar</label>
+          <select id="selectEmpleado" onchange="seleccionarEmpleado(this.value)" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+            <option value="">— Seleccione un empleado —</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Filtrar Área</label>
+          <select id="filtroDepto" onchange="filtrarEmpleados()" class="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+            <option value="">Todas</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tarjeta de inspección -->
+    <div id="inspCard" class="hidden">
+
+      <!-- Info empleado -->
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div class="flex items-center gap-3">
+            <div id="empAvatar" class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 bg-green-600"></div>
+            <div>
+              <p id="empNombre" class="text-base font-bold text-gray-900 dark:text-white"></p>
+              <p id="empDepto" class="text-xs text-gray-500"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-center">
+              <div id="empConformidad" class="text-2xl font-extrabold text-green-600">—</div>
+              <div class="text-xs text-gray-500">Conformidad</div>
+            </div>
+            <div class="flex gap-2 no-print">
+              <button onclick="navegarEmpleado(-1)" class="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Anterior">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <button onclick="navegarEmpleado(1)" class="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Siguiente">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Criterios -->
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm mb-4 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Criterios de Higiene</p>
+        </div>
+        <div id="criteriosContainer" class="p-4 space-y-3"></div>
+      </div>
+
+      <!-- Observación general del empleado -->
+      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Observación</label>
+        <textarea id="obsEmpleado" rows="2" placeholder="Observaciones adicionales sobre este empleado..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsEmpleado()"></textarea>
+      </div>
+
+      <!-- Acciones -->
+      <div class="flex flex-wrap gap-3 mb-4 no-print">
+        <button onclick="marcarTodoConforme()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Todo Conforme
+        </button>
+        <button onclick="guardarYSiguiente()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          Guardar y Siguiente →
+        </button>
+        <button onclick="guardarInspeccionEmpleado()" class="flex items-center gap-2 px-4 py-2 border border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 text-sm font-semibold rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Guardar
+        </button>
+      </div>
+    </div>
+
+    <!-- Estado vacío -->
+    <div id="emptyState" class="text-center py-16 text-gray-400 dark:text-gray-600">
+      <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      <p class="text-sm">Seleccione un empleado para iniciar la inspección</p>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: EMPLEADOS ═══ -->
+  <div id="tab-empleados" class="hidden fade-in">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
+      <div class="flex flex-wrap gap-3 items-center justify-between mb-4">
+        <h3 class="font-bold text-gray-700 dark:text-gray-300">Gestión de Empleados</h3>
+        <div class="flex gap-2 flex-wrap">
+          <label class="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm transition-colors">
+            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            Importar Excel
+            <input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="importarExcel(this)">
+          </label>
+          <button onclick="abrirModalEmpleado()" class="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors">
+            + Agregar
+          </button>
+        </div>
+      </div>
+      <input id="buscadorEmpleados" type="text" placeholder="Buscar empleado..." oninput="renderTablaEmpleados()" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 mb-3">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-100 dark:border-gray-800">
+            <th class="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase">#</th>
+            <th class="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase">Nombre</th>
+            <th class="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase">Área / Depto.</th>
+            <th class="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase">Género</th>
+            <th class="text-left py-2 px-2 text-xs font-semibold text-gray-500 uppercase">Estado hoy</th>
+            <th class="text-right py-2 px-2 text-xs font-semibold text-gray-500 uppercase">Acciones</th>
+          </tr></thead>
+          <tbody id="tablaEmpleados"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: REPORTE ═══ -->
+  <div id="tab-reporte" class="hidden fade-in">
+    <!-- Stats globales -->
+    <div id="statsReporte" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4"></div>
+    <!-- Botones -->
+    <div class="flex flex-wrap gap-3 mb-4 no-print">
+      <button onclick="exportarPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Descargar PDF
+      </button>
+      <button onclick="exportarExcel()" class="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+    <!-- Tabla resumen -->
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm">
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Inspecciones del Día</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-100 dark:border-gray-800">
+            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">Empleado</th>
+            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">Área</th>
+            <th class="text-center py-2 px-4 text-xs font-semibold text-gray-500">Conformidad</th>
+            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">No Conformidades</th>
+          </tr></thead>
+          <tbody id="tablaReporte"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Empleado -->
+<div id="modalEmpleado" class="fixed inset-0 bg-gray-950/70 flex items-center justify-center z-40 hidden">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+    <h3 id="modalTitle" class="text-lg font-bold mb-4">Agregar Empleado</h3>
+    <div class="space-y-3">
+      <div><label class="text-xs font-semibold text-gray-500 block mb-1">Nombre completo</label>
+        <input id="empNombreInput" type="text" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"></div>
+      <div><label class="text-xs font-semibold text-gray-500 block mb-1">Área / Departamento</label>
+        <input id="empDeptoInput" type="text" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"></div>
+      <div><label class="text-xs font-semibold text-gray-500 block mb-1">Género</label>
+        <select id="empGeneroInput" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-5">
+      <button onclick="cerrarModal()" class="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancelar</button>
+      <button onclick="guardarEmpleado()" class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 text-sm font-semibold transition-colors">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden">
+  <div class="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium px-5 py-3 rounded-xl shadow-xl">
+    <span id="toastMsg"></span>
+  </div>
+</div>
+
+<button id="btnTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" class="fixed bottom-6 right-6 w-10 h-10 bg-green-600 text-white rounded-full shadow-lg items-center justify-center hidden z-20 no-print hover:bg-green-700 transition-colors">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+</button>
+
+<script>
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+const USUARIOS = {
+  admin:{ pass:'admin123', nombre:'Administrador', rol:'admin' },
+  jefe: { pass:'jefe123',  nombre:'Jefe de Planta', rol:'jefe'  }
+};
+let usuario = null;
+function intentarLogin() {
+  const u=document.getElementById('loginUser').value.trim(), p=document.getElementById('loginPass').value;
+  if (USUARIOS[u] && USUARIOS[u].pass===p) {
+    usuario={...USUARIOS[u],user:u};
+    localStorage.setItem('authOrfel',JSON.stringify(usuario));
+    document.getElementById('loginOverlay').style.display='none';
+    iniciarApp();
+  } else { const e=document.getElementById('loginErr'); e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3000); }
+}
+function logout() { if(!confirm('¿Cerrar sesión?')) return; localStorage.removeItem('authOrfel'); location.reload(); }
+function checkAuth() {
+  const s=localStorage.getItem('authOrfel');
+  if(s){usuario=JSON.parse(s);document.getElementById('loginOverlay').style.display='none';iniciarApp();}
+}
+
+// ─── CRITERIOS ────────────────────────────────────────────────────────────────
+const CRITERIOS_COMUNES = [
+  {id:'salud',label:'Estado de Salud / Sin Heridas ni Cortes'},
+  {id:'uniforme',label:'Uniforme completo y limpio'},
+  {id:'calzado',label:'Calzado de trabajo limpio'},
+  {id:'unas',label:'Uñas cortas y sin esmalte'},
+  {id:'cabello',label:'Cabello recogido / Cofia'},
+  {id:'objetos',label:'Sin objetos personales (joyas, relojes, etc.)'},
+  {id:'lavado',label:'Verificación de Lavado de Manos'},
+];
+const CRITERIOS_MASC = [{id:'afeitado',label:'Afeitado / Sin barba'}];
+const CRITERIOS_FEM  = [{id:'maquillaje',label:'Sin maquillaje'}];
+
+function getCriterios(genero) {
+  return [...CRITERIOS_COMUNES, ...(genero==='M' ? CRITERIOS_MASC : CRITERIOS_FEM)];
+}
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let empleados = [];
+let inspecciones = {};   // empId → { criterios:{}, obs:'', conformidad:0, fecha:'' }
+let empActualIdx = -1;
+let vozActiva = false, recognition = null;
+let criterioFocusIdx = 0;
+let LOGO_BASE64 = '';
+
+const KEY_EMP  = 'orfelEmpleados';
+const KEY_INSP = 'controlHigiene';
+
+function iniciarApp() {
+  document.getElementById('dispNombre').textContent = usuario.nombre;
+  document.getElementById('fechaActual').value = new Date().toISOString().split('T')[0];
+
+  // Cargar empleados
+  const savedEmp = localStorage.getItem(KEY_EMP);
+  if (savedEmp) { empleados = JSON.parse(savedEmp); }
+  else { empleados = generarEmpleadosDefault(); guardarEmpleados(); }
+
+  // Cargar inspecciones
+  const savedInsp = localStorage.getItem(KEY_INSP);
+  if (savedInsp) {
+    const d = JSON.parse(savedInsp);
+    if (d.fecha === new Date().toISOString().split('T')[0]) inspecciones = d.inspecciones || {};
+  }
+
+  // Logo para PDF
+  const img = new Image(); img.crossOrigin='anonymous';
+  img.onload=function(){try{const c=document.createElement('canvas');c.width=this.width;c.height=this.height;c.getContext('2d').drawImage(this,0,0);LOGO_BASE64=c.toDataURL('image/jpeg');}catch(e){}};
+  img.src='logo_orfel.jpg';
+
+  poblarSelector();
+  renderTablaEmpleados();
+  initVoz();
+}
+
+function generarEmpleadosDefault() {
+  const areas = ['Producción','Enfriado','Envasado','Almacén PT','Despacho'];
+  const nombres = [
+    'Ana Torres','Carlos Quispe','María López','José Condori','Rosa Mamani',
+    'Luis Huanca','Carmen Flores','Roberto Chávez','Elena Ríos','Miguel Vega',
+    'Patricia Cruz','Jorge Medina','Sandra Ortiz','Pablo Ramos','Lucía Paredes',
+    'Fernando Gutiérrez','Isabel Morales','Diego Vargas','Claudia Soto','Andrés Pinto',
+    'Valeria Díaz','Héctor Luna','Natalia Rojas','Eduardo Fuentes','Gabriela Peña'
+  ];
+  return nombres.map((nombre, i) => ({
+    id: i+1, nombre, depto: areas[i % areas.length],
+    genero: i%3===0 ? 'F' : 'M'
+  }));
+}
+
+// ─── SELECTOR ─────────────────────────────────────────────────────────────────
+function poblarSelector() {
+  const sel = document.getElementById('selectEmpleado');
+  const filtro = document.getElementById('filtroDepto');
+  const deptos = [...new Set(empleados.map(e=>e.depto))].sort();
+
+  sel.innerHTML = '<option value="">— Seleccione un empleado —</option>';
+  filtro.innerHTML = '<option value="">Todas</option>';
+  deptos.forEach(d => { const o=document.createElement('option'); o.value=d; o.textContent=d; filtro.appendChild(o); });
+
+  empleados.forEach(e => {
+    const insp = inspecciones[e.id];
+    const estado = insp ? (insp.conformidad>=80?'✓':'⚠') : '○';
+    const o = document.createElement('option');
+    o.value = e.id; o.textContent = `${estado} ${e.nombre} — ${e.depto}`;
+    sel.appendChild(o);
+  });
+}
+function filtrarEmpleados() {
+  const depto = document.getElementById('filtroDepto').value;
+  const sel = document.getElementById('selectEmpleado');
+  sel.innerHTML = '<option value="">— Seleccione un empleado —</option>';
+  const lista = depto ? empleados.filter(e=>e.depto===depto) : empleados;
+  lista.forEach(e => {
+    const insp = inspecciones[e.id];
+    const estado = insp ? (insp.conformidad>=80?'✓':'⚠') : '○';
+    const o = document.createElement('option');
+    o.value = e.id; o.textContent = `${estado} ${e.nombre} — ${e.depto}`;
+    sel.appendChild(o);
+  });
+}
+
+// ─── INSPECCIÓN ───────────────────────────────────────────────────────────────
+function seleccionarEmpleado(id) {
+  if (!id) { document.getElementById('inspCard').classList.add('hidden'); document.getElementById('emptyState').classList.remove('hidden'); return; }
+  empActualIdx = empleados.findIndex(e=>e.id==id);
+  criterioFocusIdx = 0;
+  cargarEmpleadoActual();
+}
+function cargarEmpleadoActual() {
+  if (empActualIdx<0||empActualIdx>=empleados.length) return;
+  const emp = empleados[empActualIdx];
+  document.getElementById('selectEmpleado').value = emp.id;
+  document.getElementById('inspCard').classList.remove('hidden');
+  document.getElementById('emptyState').classList.add('hidden');
+
+  // Avatar
+  const av = document.getElementById('empAvatar');
+  av.textContent = emp.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  av.className = 'w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 ' + (emp.genero==='F'?'bg-pink-500':'bg-blue-500');
+  document.getElementById('empNombre').textContent = emp.nombre;
+  document.getElementById('empDepto').textContent = `${emp.depto} · ${emp.genero==='F'?'Femenino':'Masculino'}`;
+
+  // Obs
+  const insp = inspecciones[emp.id];
+  document.getElementById('obsEmpleado').value = insp?.obs || '';
+
+  renderCriterios();
+  actualizarConformidad();
+}
+function renderCriterios() {
+  const emp = empleados[empActualIdx];
+  const criterios = getCriterios(emp.genero);
+  const insp = inspecciones[emp.id] || { criterios:{} };
+  const container = document.getElementById('criteriosContainer');
+  container.innerHTML = criterios.map((c,i) => {
+    const val = insp.criterios[c.id] || 'pendiente';
+    const isFocus = vozActiva && i===criterioFocusIdx;
+    const focusCls = isFocus ? 'ring-2 ring-green-500' : '';
+    return `<div id="crit-${i}" class="flex items-center justify-between gap-3 rounded-xl p-2 ${focusCls} transition-all">
+      <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">${c.label}</span>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-green-50 dark:hover:bg-green-950'}"
+          onclick="setCriterio(${i},'conforme')">✓</button>
+        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-conforme'?'bg-red-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950'}"
+          onclick="setCriterio(${i},'no-conforme')">✗</button>
+        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-aplica'?'bg-gray-500 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+          onclick="setCriterio(${i},'no-aplica')">N/A</button>
+        <span class="text-[10px] font-semibold w-16 text-right ${val==='conforme'?'text-green-600':val==='no-conforme'?'text-red-600':'text-gray-400'}">${val==='conforme'?'Conf.':val==='no-conforme'?'No Conf.':val==='no-aplica'?'N/A':'Pend.'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setCriterio(idx, val) {
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  const criterios = getCriterios(emp.genero);
+  inspecciones[emp.id].criterios[criterios[idx].id] = val;
+  actualizarConformidad();
+  renderCriterios();
+  guardarInspecciones();
+}
+function marcarTodoConforme() {
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  getCriterios(emp.genero).forEach(c => inspecciones[emp.id].criterios[c.id] = 'conforme');
+  actualizarConformidad();
+  renderCriterios();
+  guardarInspecciones();
+  toast('✓ Todos los criterios marcados como Conformes');
+}
+function actualizarConformidad() {
+  const emp = empleados[empActualIdx];
+  const insp = inspecciones[emp.id];
+  if (!insp) { document.getElementById('empConformidad').textContent = '—'; return; }
+  const criterios = getCriterios(emp.genero);
+  const evaluados = criterios.filter(c => insp.criterios[c.id] && insp.criterios[c.id]!=='pendiente' && insp.criterios[c.id]!=='no-aplica');
+  const conformes = criterios.filter(c => insp.criterios[c.id]==='conforme');
+  const base = criterios.filter(c => insp.criterios[c.id]!=='no-aplica').length;
+  const pct = base > 0 ? Math.round(conformes.length/base*100) : 0;
+  insp.conformidad = pct;
+  const el = document.getElementById('empConformidad');
+  el.textContent = pct+'%';
+  el.className = 'text-2xl font-extrabold ' + (pct>=80?'text-green-600':pct>=50?'text-amber-500':'text-red-600');
+}
+function guardarObsEmpleado() {
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  inspecciones[emp.id].obs = document.getElementById('obsEmpleado').value;
+  guardarInspecciones();
+}
+function guardarInspeccionEmpleado() {
+  guardarObsEmpleado();
+  guardarInspecciones();
+  poblarSelector();
+  toast('✓ Inspección guardada — '+empleados[empActualIdx].nombre);
+}
+function guardarYSiguiente() {
+  guardarInspeccionEmpleado();
+  navegarEmpleado(1);
+}
+function navegarEmpleado(dir) {
+  const nuevoIdx = empActualIdx + dir;
+  if (nuevoIdx<0||nuevoIdx>=empleados.length) { toast('No hay más empleados en esa dirección'); return; }
+  empActualIdx = nuevoIdx;
+  criterioFocusIdx = 0;
+  cargarEmpleadoActual();
+}
+function guardarInspecciones() {
+  localStorage.setItem(KEY_INSP, JSON.stringify({ fecha: document.getElementById('fechaActual').value, inspecciones }));
+}
+
+// ─── VOZ ──────────────────────────────────────────────────────────────────────
+function initVoz() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { document.getElementById('vozStatus').textContent = 'Voz no disponible. Usa Chrome en Android.'; return; }
+  recognition = new SR();
+  recognition.lang = 'es-PE';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = e => procesarComando(e.results[0][0].transcript.toLowerCase().trim());
+  recognition.onerror = () => { if(vozActiva) setTimeout(escuchar,800); };
+  recognition.onend   = () => { if(vozActiva) setTimeout(escuchar,400); };
+}
+function toggleVoz() {
+  if(!recognition) return;
+  vozActiva = !vozActiva;
+  const btn = document.getElementById('micBtn');
+  if (vozActiva) {
+    btn.className='flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors mic-active';
+    btn.innerHTML='<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Escuchando...';
+    setVozStatus('Esperando comando de voz...');
+    escuchar();
+  } else {
+    try{recognition.stop();}catch(e){}
+    btn.className='flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors';
+    btn.innerHTML='<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Activar Voz';
+    setVozStatus('Comandos: "conforme" · "no conforme" · "no aplica" · "siguiente empleado" · "guardar"');
+  }
+  renderCriterios();
+}
+function escuchar() { try{recognition.start();}catch(e){} }
+function setVozStatus(msg) { document.getElementById('vozStatus').textContent=msg; }
+
+function procesarComando(cmd) {
+  if (empActualIdx < 0) { setVozStatus('Primero seleccione un empleado'); return; }
+  const emp = empleados[empActualIdx];
+  const criterios = getCriterios(emp.genero);
+  const crit = criterios[criterioFocusIdx];
+
+  if (cmd.includes('todo conforme') || cmd.includes('todos conformes')) {
+    marcarTodoConforme();
+    setVozStatus('✓ Todo conforme — '+emp.nombre);
+    criterioFocusIdx = criterios.length - 1;
+
+  } else if ((cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('sí') || cmd.includes('si')) && !cmd.includes('no')) {
+    if(crit) { setCriterio(criterioFocusIdx,'conforme'); setVozStatus('✓ Conforme: '+crit.label); avanzarCriterio(criterios); }
+
+  } else if (cmd.includes('no conforme') || cmd.includes('no conf') || cmd.includes('falla') || cmd.includes('mal') || cmd.includes('no')) {
+    if(crit) { setCriterio(criterioFocusIdx,'no-conforme'); setVozStatus('✗ No Conforme: '+crit.label); avanzarCriterio(criterios); }
+
+  } else if (cmd.includes('no aplica') || cmd.includes('n a') || cmd.includes('no aplica')) {
+    if(crit) { setCriterio(criterioFocusIdx,'no-aplica'); setVozStatus('N/A: '+crit.label); avanzarCriterio(criterios); }
+
+  } else if (cmd.includes('siguiente empleado') || cmd.includes('siguiente persona') || cmd.includes('guardar y siguiente')) {
+    guardarYSiguiente();
+    setVozStatus('→ Siguiente: '+(empleados[empActualIdx]?.nombre||'Fin'));
+
+  } else if (cmd.includes('siguiente') || cmd.includes('adelante')) {
+    avanzarCriterio(criterios);
+    setVozStatus('→ '+criterios[criterioFocusIdx]?.label||'Fin');
+
+  } else if (cmd.includes('anterior') || cmd.includes('atrás') || cmd.includes('atras')) {
+    if(criterioFocusIdx>0) criterioFocusIdx--;
+    setVozStatus('← '+criterios[criterioFocusIdx]?.label);
+
+  } else if (cmd.includes('guardar') || cmd.includes('listo') || cmd.includes('terminar')) {
+    guardarInspeccionEmpleado();
+    setVozStatus('✓ Guardado: '+emp.nombre);
+
+  } else {
+    setVozStatus(`No entendí: "${cmd}"`);
+  }
+  renderCriterios();
+  scrollToCriterioActual();
+}
+function avanzarCriterio(criterios) {
+  if (criterioFocusIdx < criterios.length-1) criterioFocusIdx++;
+}
+function scrollToCriterioActual() {
+  const el = document.getElementById('crit-'+criterioFocusIdx);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ─── EMPLEADOS CRUD ───────────────────────────────────────────────────────────
+let editandoId = null;
+function abrirModalEmpleado(id=null) {
+  editandoId = id;
+  document.getElementById('modalTitle').textContent = id ? 'Editar Empleado' : 'Agregar Empleado';
+  if (id) {
+    const e = empleados.find(em=>em.id===id);
+    document.getElementById('empNombreInput').value = e.nombre;
+    document.getElementById('empDeptoInput').value = e.depto;
+    document.getElementById('empGeneroInput').value = e.genero;
+  } else {
+    document.getElementById('empNombreInput').value='';
+    document.getElementById('empDeptoInput').value='';
+    document.getElementById('empGeneroInput').value='M';
+  }
+  document.getElementById('modalEmpleado').classList.remove('hidden');
+}
+function cerrarModal() { document.getElementById('modalEmpleado').classList.add('hidden'); }
+function guardarEmpleado() {
+  const nombre = document.getElementById('empNombreInput').value.trim();
+  const depto  = document.getElementById('empDeptoInput').value.trim();
+  const genero = document.getElementById('empGeneroInput').value;
+  if (!nombre||!depto) { toast('Completa nombre y área'); return; }
+  if (editandoId) {
+    const e = empleados.find(em=>em.id===editandoId);
+    e.nombre=nombre; e.depto=depto; e.genero=genero;
+  } else {
+    empleados.push({id: Date.now(), nombre, depto, genero});
+  }
+  guardarEmpleados();
+  cerrarModal();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast('✓ Empleado guardado');
+}
+function eliminarEmpleado(id) {
+  if(!confirm('¿Eliminar este empleado?')) return;
+  empleados = empleados.filter(e=>e.id!==id);
+  delete inspecciones[id];
+  guardarEmpleados();
+  guardarInspecciones();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast('Empleado eliminado');
+}
+function guardarEmpleados() { localStorage.setItem(KEY_EMP, JSON.stringify(empleados)); }
+
+function renderTablaEmpleados() {
+  const busq = document.getElementById('buscadorEmpleados').value.toLowerCase();
+  const lista = busq ? empleados.filter(e=>e.nombre.toLowerCase().includes(busq)||e.depto.toLowerCase().includes(busq)) : empleados;
+  const tbody = document.getElementById('tablaEmpleados');
+  if (!lista.length) { tbody.innerHTML='<tr><td colspan="6" class="text-center py-8 text-gray-400 text-sm">Sin empleados</td></tr>'; return; }
+  tbody.innerHTML = lista.map(e => {
+    const insp = inspecciones[e.id];
+    const badgeCls = insp ? (insp.conformidad>=80?'bg-green-100 text-green-700':'bg-red-100 text-red-700') : 'bg-gray-100 text-gray-500';
+    const badgeTxt = insp ? insp.conformidad+'%' : 'Sin inspección';
+    return `<tr class="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+      <td class="py-2.5 px-2 text-xs text-gray-400">${e.id}</td>
+      <td class="py-2.5 px-2 font-medium text-gray-800 dark:text-gray-200">${e.nombre}</td>
+      <td class="py-2.5 px-2 text-gray-500 dark:text-gray-400 text-sm">${e.depto}</td>
+      <td class="py-2.5 px-2 text-xs text-gray-500">${e.genero==='F'?'♀ Fem.':'♂ Masc.'}</td>
+      <td class="py-2.5 px-2"><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${badgeCls}">${badgeTxt}</span></td>
+      <td class="py-2.5 px-2 text-right">
+        <button onclick="abrirModalEmpleado(${e.id})" class="text-xs text-blue-500 hover:text-blue-700 mr-3">Editar</button>
+        <button onclick="eliminarEmpleado(${e.id})" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── IMPORTAR EXCEL ───────────────────────────────────────────────────────────
+function importarExcel(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {header:1});
+      if (data.length<2) { toast('Archivo vacío o sin datos'); return; }
+      const headers = data[0].map(h=>String(h||'').toLowerCase().trim());
+      const findCol = (...keys) => keys.map(k=>headers.findIndex(h=>h.includes(k))).find(i=>i>=0) ?? -1;
+      const iNombre = findCol('nombre','name','empleado','worker');
+      const iDepto  = findCol('área','area','depto','departamento','department');
+      const iGenero = findCol('género','genero','sexo','gender');
+      if (iNombre<0) { toast('No se encontró columna de nombre'); return; }
+      let added=0;
+      data.slice(1).forEach(row => {
+        const nombre = String(row[iNombre]||'').trim();
+        if(!nombre) return;
+        const depto  = iDepto>=0  ? String(row[iDepto]||'').trim()  : 'General';
+        const gRaw   = iGenero>=0 ? String(row[iGenero]||'').toLowerCase() : '';
+        const genero = gRaw.includes('f')||gRaw.includes('fem')||gRaw.includes('mujer') ? 'F' : 'M';
+        if (!empleados.find(e=>e.nombre.toLowerCase()===nombre.toLowerCase())) {
+          empleados.push({id:Date.now()+Math.random(), nombre, depto, genero});
+          added++;
+        }
+      });
+      guardarEmpleados();
+      poblarSelector();
+      renderTablaEmpleados();
+      toast(`✓ ${added} empleados importados`);
+    } catch(err) { toast('Error al leer el archivo'); }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+// ─── REPORTE ──────────────────────────────────────────────────────────────────
+function generarReporte() {
+  const lista = Object.keys(inspecciones);
+  const total = lista.length;
+  const okCount = lista.filter(id=>inspecciones[id].conformidad>=80).length;
+  const pct = total ? Math.round(okCount/total*100) : 0;
+
+  document.getElementById('statsReporte').innerHTML = [
+    ['Total Insp.',total,'text-blue-600','bg-blue-50 dark:bg-blue-950'],
+    ['OK (≥80%)',okCount,'text-green-600','bg-green-50 dark:bg-green-950'],
+    ['Con obs.',total-okCount,'text-red-600','bg-red-50 dark:bg-red-950'],
+    ['Conformidad',pct+'%','text-purple-600','bg-purple-50 dark:bg-purple-950']
+  ].map(([label,val,color,bg])=>`<div class="rounded-xl p-4 text-center ${bg}"><div class="text-2xl font-extrabold ${color}">${val}</div><div class="text-xs text-gray-500 mt-1">${label}</div></div>`).join('');
+
+  const tbody = document.getElementById('tablaReporte');
+  if (!total) { tbody.innerHTML='<tr><td colspan="4" class="text-center py-8 text-gray-400 text-sm">Sin inspecciones registradas hoy</td></tr>'; return; }
+  tbody.innerHTML = empleados
+    .filter(e=>inspecciones[e.id])
+    .map(e => {
+      const insp = inspecciones[e.id];
+      const criterios = getCriterios(e.genero);
+      const noConf = criterios.filter(c=>insp.criterios[c.id]==='no-conforme').map(c=>c.label);
+      const clr = insp.conformidad>=80?'text-green-600':insp.conformidad>=50?'text-amber-500':'text-red-600';
+      return `<tr class="border-b border-gray-50 dark:border-gray-800">
+        <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-gray-200">${e.nombre}</td>
+        <td class="py-2.5 px-4 text-sm text-gray-500">${e.depto}</td>
+        <td class="py-2.5 px-4 text-center font-bold ${clr}">${insp.conformidad}%</td>
+        <td class="py-2.5 px-4 text-xs text-red-500">${noConf.length?noConf.join(', '):'—'}</td>
+      </tr>`;
+    }).join('');
+}
+
+// ─── PDF ──────────────────────────────────────────────────────────────────────
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const W = doc.internal.pageSize.width, H = doc.internal.pageSize.height, M=14;
+  const fecha = document.getElementById('fechaActual').value;
+  let y=10, pg=1;
+  function header() {
+    if(LOGO_BASE64) try{doc.addImage(LOGO_BASE64,'JPEG',M,8,28,18);}catch(e){}
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(31,41,55);
+    doc.text('Control de Higiene del Personal',W/2,15,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(75,85,99);
+    doc.text(`Fecha: ${fecha}  |  Inspector: ${usuario.nombre}`,W/2,22,{align:'center'});
+    doc.setDrawColor(229,231,235);doc.line(M,28,W-M,28);y=36;
+  }
+  function footer(){doc.setFontSize(8);doc.setTextColor(156,163,175);doc.line(M,H-12,W-M,H-12);doc.text(`Página ${pg}  |  ORFEL — Control Higiénico Sanitario`,W/2,H-7,{align:'center'});}
+  function checkY(n=12){if(y+n>H-18){footer();doc.addPage();pg++;header();}}
+  header();
+
+  const inspList = empleados.filter(e=>inspecciones[e.id]);
+  inspList.forEach(emp => {
+    const insp = inspecciones[emp.id];
+    const criterios = getCriterios(emp.genero);
+    checkY(16);
+    doc.setFillColor(240,253,244);doc.rect(M,y-5,W-M*2,12,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(22,101,52);
+    doc.text(emp.nombre,M+3,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(75,85,99);
+    doc.text(emp.depto,M+3,y+6);
+    const clr = insp.conformidad>=80?[22,163,74]:insp.conformidad>=50?[245,158,11]:[220,38,38];
+    doc.setTextColor(...clr);doc.setFont('helvetica','bold');doc.setFontSize(12);
+    doc.text(insp.conformidad+'%',W-M-2,y+3,{align:'right'});
+    y+=16;
+    criterios.forEach(c => {
+      checkY(6);
+      const v = insp.criterios[c.id]||'pendiente';
+      const cclr = v==='conforme'?[22,163,74]:v==='no-conforme'?[220,38,38]:[156,163,175];
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(75,85,99);
+      doc.text('  • '+c.label,M+4,y);
+      doc.setTextColor(...cclr);doc.text(v==='conforme'?'✓':v==='no-conforme'?'✗':'—',W-M-2,y,{align:'right'});
+      y+=5;
+    });
+    if(insp.obs){checkY(8);doc.setFontSize(7);doc.setTextColor(107,114,128);const ls=doc.splitTextToSize('Obs: '+insp.obs,W-M*2-10);doc.text(ls,M+4,y);y+=ls.length*4;}
+    y+=5;
+  });
+  footer();
+  doc.save(`Higiene-Personal-ORFEL-${fecha.replace(/-/g,'')}.pdf`);
+  toast('📄 PDF generado');
+}
+
+// ─── EXPORTAR EXCEL (CSV) ─────────────────────────────────────────────────────
+function exportarExcel() {
+  const fecha = document.getElementById('fechaActual').value;
+  const rows = [['Nombre','Área','Género','Conformidad (%)','No Conformidades','Observación']];
+  empleados.filter(e=>inspecciones[e.id]).forEach(e=>{
+    const insp=inspecciones[e.id];
+    const criterios=getCriterios(e.genero);
+    const noConf=criterios.filter(c=>insp.criterios[c.id]==='no-conforme').map(c=>c.label).join('; ');
+    rows.push([e.nombre,e.depto,e.genero==='F'?'F':'M',insp.conformidad,noConf,insp.obs||'']);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Higiene Personal');
+  XLSX.writeFile(wb,`Higiene-Personal-ORFEL-${fecha.replace(/-/g,'')}.xlsx`);
+  toast('📊 Excel exportado');
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+function switchTab(id,btn) {
+  ['inspeccion','empleados','reporte'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
+  document.getElementById('tab-'+id).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(id==='reporte') generarReporte();
+}
+function toggleDark() { const d=document.documentElement.classList.toggle('dark'); localStorage.setItem('darkMode',d); }
+function toast(msg,dur=3000) {
+  document.getElementById('toastMsg').textContent=msg;
+  const t=document.getElementById('toast');
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.add('hidden'),dur);
+}
+window.addEventListener('scroll',()=>{ document.getElementById('btnTop').style.display=window.scrollY>300?'flex':'none'; });
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+if(localStorage.getItem('darkMode')==='true') document.documentElement.classList.add('dark');
+checkAuth();
+</script>
+</body>
+</html>
