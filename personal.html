@@ -77,9 +77,17 @@
     <!-- Panel Voz -->
     <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm no-print">
       <div class="flex items-center justify-between flex-wrap gap-3">
-        <div>
+        <div class="flex-1">
           <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Control por Voz <span class="text-xs font-normal text-gray-400">(Chrome · Android)</span></p>
-          <p id="vozStatus" class="text-xs text-gray-400 mt-0.5">Comandos: "conforme" · "no conforme" · "no aplica" · "siguiente empleado" · "guardar"</p>
+          <!-- Estado activo de voz -->
+          <div id="vozEstadoBox" class="hidden mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="vozEstadoLabel" class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"></span>
+              <span id="vozEmpleadoLabel" class="text-sm font-bold text-gray-800 dark:text-gray-200"></span>
+            </div>
+            <p id="vozStatus" class="text-xs text-green-600 dark:text-green-400 mt-1 font-medium"></p>
+          </div>
+          <p id="vozStatusInactivo" class="text-xs text-gray-400 mt-0.5">Di el número del empleado (ej: "uno", "dos"...) luego "conforme" u "observación"</p>
         </div>
         <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
@@ -144,10 +152,18 @@
         <div id="criteriosContainer" class="p-4 space-y-3"></div>
       </div>
 
-      <!-- Observación general del empleado -->
+      <!-- Observación y Acción Correctiva del empleado -->
       <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm">
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Observación</label>
-        <textarea id="obsEmpleado" rows="2" placeholder="Observaciones adicionales sobre este empleado..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsEmpleado()"></textarea>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Observación</label>
+            <textarea id="obsEmpleado" rows="2" placeholder="Describa el hallazgo..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsEmpleado()"></textarea>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Acción Correctiva</label>
+            <textarea id="accEmpleado" rows="2" placeholder="Acción tomada..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsEmpleado()"></textarea>
+          </div>
+        </div>
       </div>
 
       <!-- Acciones -->
@@ -320,6 +336,7 @@ let inspecciones = {};   // empId → { criterios:{}, obs:'', conformidad:0, fec
 let empActualIdx = -1;
 let vozActiva = false, recognition = null;
 let criterioFocusIdx = 0;
+let vozEstado = 'empleado'; // empleado | resultado | observacion | accion
 let LOGO_BASE64 = '';
 
 const KEY_EMP  = 'orfelEmpleados';
@@ -419,9 +436,10 @@ function cargarEmpleadoActual() {
   document.getElementById('empNombre').textContent = emp.nombre;
   document.getElementById('empDepto').textContent = `${emp.depto} · ${emp.genero==='F'?'Femenino':'Masculino'}`;
 
-  // Obs
+  // Obs y Acc
   const insp = inspecciones[emp.id];
   document.getElementById('obsEmpleado').value = insp?.obs || '';
+  document.getElementById('accEmpleado').value = insp?.acc || '';
 
   renderCriterios();
   actualizarConformidad();
@@ -483,8 +501,9 @@ function actualizarConformidad() {
 }
 function guardarObsEmpleado() {
   const emp = empleados[empActualIdx];
-  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
   inspecciones[emp.id].obs = document.getElementById('obsEmpleado').value;
+  inspecciones[emp.id].acc = document.getElementById('accEmpleado').value;
   guardarInspecciones();
 }
 function guardarInspeccionEmpleado() {
@@ -524,64 +543,129 @@ function toggleVoz() {
   if(!recognition) return;
   vozActiva = !vozActiva;
   const btn = document.getElementById('micBtn');
+  const box = document.getElementById('vozEstadoBox');
+  const inactivo = document.getElementById('vozStatusInactivo');
   if (vozActiva) {
+    vozEstado = 'empleado';
     btn.className='flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors mic-active';
     btn.innerHTML='<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Escuchando...';
-    setVozStatus('Esperando comando de voz...');
+    box.classList.remove('hidden');
+    inactivo.classList.add('hidden');
+    setVozPanel('🎤 Esperando número', '', 'Di el número del empleado (uno, dos, tres...)');
     escuchar();
   } else {
     try{recognition.stop();}catch(e){}
     btn.className='flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors';
     btn.innerHTML='<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Activar Voz';
-    setVozStatus('Comandos: "conforme" · "no conforme" · "no aplica" · "siguiente empleado" · "guardar"');
+    box.classList.add('hidden');
+    inactivo.classList.remove('hidden');
   }
-  renderCriterios();
 }
 function escuchar() { try{recognition.start();}catch(e){} }
-function setVozStatus(msg) { document.getElementById('vozStatus').textContent=msg; }
 
+function setVozPanel(estado, empleadoNombre, instruccion) {
+  document.getElementById('vozEstadoLabel').textContent = estado;
+  document.getElementById('vozEmpleadoLabel').textContent = empleadoNombre;
+  document.getElementById('vozStatus').textContent = instruccion;
+}
+
+// ── PARSER DE NÚMEROS EN ESPAÑOL ──────────────────────────────────────────────
+function parsearNumero(cmd) {
+  const mapa = {
+    'uno':1,'dos':2,'tres':3,'cuatro':4,'cinco':5,'seis':6,'siete':7,'ocho':8,'nueve':9,
+    'diez':10,'once':11,'doce':12,'trece':13,'catorce':14,'quince':15,
+    'dieciséis':16,'dieciseis':16,'diecisiete':17,'dieciocho':18,'diecinueve':19,
+    'veinte':20,'veintiuno':21,'veintidós':22,'veintidos':22,
+    'veintitrés':23,'veintitres':23,'veinticuatro':24,'veinticinco':25,
+    'veintiséis':26,'veintiseis':26,'veintisiete':27,'veintiocho':28,'veintinueve':29,
+    'treinta':30,'cuarenta':40,'cincuenta':50
+  };
+  const limpio = cmd.trim().toLowerCase();
+  // Número con palabra
+  for (const [palabra, num] of Object.entries(mapa)) {
+    if (limpio === palabra || limpio.startsWith(palabra+' ') || limpio.endsWith(' '+palabra)) return num;
+  }
+  // Número dígito
+  const m = limpio.match(/^(\d+)$/);
+  if (m) return parseInt(m[1]);
+  return null;
+}
+
+// ── MÁQUINA DE ESTADOS DE VOZ ─────────────────────────────────────────────────
+// Estados: 'empleado' → 'resultado' → 'observacion' → 'accion'
 function procesarComando(cmd) {
-  if (empActualIdx < 0) { setVozStatus('Primero seleccione un empleado'); return; }
-  const emp = empleados[empActualIdx];
-  const criterios = getCriterios(emp.genero);
-  const crit = criterios[criterioFocusIdx];
+  switch(vozEstado) {
 
-  if (cmd.includes('todo conforme') || cmd.includes('todos conformes')) {
-    marcarTodoConforme();
-    setVozStatus('✓ Todo conforme — '+emp.nombre);
-    criterioFocusIdx = criterios.length - 1;
+    case 'empleado': {
+      const num = parsearNumero(cmd);
+      if (num !== null && num >= 1 && num <= empleados.length) {
+        empActualIdx = num - 1;
+        cargarEmpleadoActual();
+        vozEstado = 'resultado';
+        const emp = empleados[empActualIdx];
+        setVozPanel('👤 Empleado #'+num, emp.nombre, 'Di "conforme" o "observación"');
+        // Scroll al card del empleado
+        document.getElementById('inspCard').scrollIntoView({behavior:'smooth', block:'start'});
+      } else {
+        setVozPanel('🎤 No entendí', '', `Di solo el número (uno, dos, tres...) — Escuché: "${cmd}"`);
+      }
+      break;
+    }
 
-  } else if ((cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('sí') || cmd.includes('si')) && !cmd.includes('no')) {
-    if(crit) { setCriterio(criterioFocusIdx,'conforme'); setVozStatus('✓ Conforme: '+crit.label); avanzarCriterio(criterios); }
+    case 'resultado': {
+      const emp = empleados[empActualIdx];
+      if ((cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('ok')) && !cmd.includes('no')) {
+        // Marcar todo conforme, guardar y volver a esperar número
+        marcarTodoConforme();
+        guardarInspeccionEmpleado();
+        poblarSelector();
+        vozEstado = 'empleado';
+        setVozPanel('✓ Guardado', emp.nombre, 'Di el número del siguiente empleado');
 
-  } else if (cmd.includes('no conforme') || cmd.includes('no conf') || cmd.includes('falla') || cmd.includes('mal') || cmd.includes('no')) {
-    if(crit) { setCriterio(criterioFocusIdx,'no-conforme'); setVozStatus('✗ No Conforme: '+crit.label); avanzarCriterio(criterios); }
+      } else if (cmd.includes('observaci')) {
+        // "observación [texto]" — puede venir el texto en el mismo comando
+        const resto = cmd.replace(/.*observaci[oó]n[:\s]*/,'').trim();
+        if (resto.length > 2) {
+          // Texto de observación en el mismo utterance
+          document.getElementById('obsEmpleado').value = resto;
+          guardarObsEmpleado();
+          vozEstado = 'accion';
+          setVozPanel('📝 Obs guardada', emp.nombre, 'Ahora di la Acción Correctiva...');
+        } else {
+          // Esperar el siguiente utterance como observación
+          vozEstado = 'observacion';
+          setVozPanel('📝 Escuchando...', emp.nombre, 'Di la observación del hallazgo');
+        }
 
-  } else if (cmd.includes('no aplica') || cmd.includes('n a') || cmd.includes('no aplica')) {
-    if(crit) { setCriterio(criterioFocusIdx,'no-aplica'); setVozStatus('N/A: '+crit.label); avanzarCriterio(criterios); }
+      } else {
+        setVozPanel('❓ No entendí', emp.nombre, `Di "conforme" u "observación" — Escuché: "${cmd}"`);
+      }
+      break;
+    }
 
-  } else if (cmd.includes('siguiente empleado') || cmd.includes('siguiente persona') || cmd.includes('guardar y siguiente')) {
-    guardarYSiguiente();
-    setVozStatus('→ Siguiente: '+(empleados[empActualIdx]?.nombre||'Fin'));
+    case 'observacion': {
+      const emp = empleados[empActualIdx];
+      document.getElementById('obsEmpleado').value = cmd;
+      guardarObsEmpleado();
+      vozEstado = 'accion';
+      setVozPanel('📝 Obs: "'+cmd.substring(0,30)+(cmd.length>30?'...':'')+'"', emp.nombre, 'Di la Acción Correctiva...');
+      break;
+    }
 
-  } else if (cmd.includes('siguiente') || cmd.includes('adelante')) {
-    avanzarCriterio(criterios);
-    setVozStatus('→ '+criterios[criterioFocusIdx]?.label||'Fin');
-
-  } else if (cmd.includes('anterior') || cmd.includes('atrás') || cmd.includes('atras')) {
-    if(criterioFocusIdx>0) criterioFocusIdx--;
-    setVozStatus('← '+criterios[criterioFocusIdx]?.label);
-
-  } else if (cmd.includes('guardar') || cmd.includes('listo') || cmd.includes('terminar')) {
-    guardarInspeccionEmpleado();
-    setVozStatus('✓ Guardado: '+emp.nombre);
-
-  } else {
-    setVozStatus(`No entendí: "${cmd}"`);
+    case 'accion': {
+      const emp = empleados[empActualIdx];
+      document.getElementById('accEmpleado').value = cmd;
+      guardarObsEmpleado();
+      guardarInspeccionEmpleado();
+      poblarSelector();
+      vozEstado = 'empleado';
+      setVozPanel('✓ Guardado con obs.', emp.nombre, 'Di el número del siguiente empleado');
+      break;
+    }
   }
   renderCriterios();
-  scrollToCriterioActual();
 }
+
 function avanzarCriterio(criterios) {
   if (criterioFocusIdx < criterios.length-1) criterioFocusIdx++;
 }
