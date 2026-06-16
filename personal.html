@@ -94,10 +94,16 @@
           </div>
           <p id="vozStatusInactivo" class="text-xs text-gray-400 mt-0.5">Di número de empleado → "todo conforme" o "observaciones"</p>
         </div>
-        <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-          Activar Voz
-        </button>
+        <div class="flex gap-2 flex-wrap">
+          <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+            Activar Voz
+          </button>
+          <button id="btnSimulacro" onclick="iniciarSimulacro()" class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl transition-colors" title="Inspección aleatoria — el sistema selecciona empleados al azar">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Simulacro
+          </button>
+        </div>
       </div>
     </div>
 
@@ -206,12 +212,12 @@
       <div class="flex flex-wrap gap-3 items-center justify-between mb-4">
         <h3 class="font-bold text-gray-700 dark:text-gray-300">Gestión de Empleados</h3>
         <div class="flex gap-2 flex-wrap">
-          <label class="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm transition-colors">
+          <label id="btnImportarExcel" class="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 text-sm transition-colors" style="display:none">
             <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             Importar Excel
             <input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="importarExcel(this)">
           </label>
-          <button onclick="abrirModalEmpleado()" class="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          <button id="btnAgregarEmp" onclick="abrirModalEmpleado()" class="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors" style="display:none">
             + Agregar
           </button>
         </div>
@@ -356,7 +362,8 @@
     <div id="vozEmpAvatar" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 bg-blue-500"></div>
     <p id="vozEmpNombre" class="text-2xl font-extrabold text-gray-900 dark:text-white leading-tight"></p>
     <p id="vozEmpDepto" class="text-sm text-gray-400 dark:text-gray-500 mt-1.5"></p>
-    <div class="mt-4 flex items-center justify-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
+    <p id="vozEmpProgreso" class="hidden text-xs font-bold text-purple-600 dark:text-purple-400 mt-2"></p>
+    <div class="mt-3 flex items-center justify-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
       <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
       <span>Di "todo conforme" u "observaciones"</span>
     </div>
@@ -457,14 +464,14 @@ function intentarLogin() {
   const u=document.getElementById('loginUser').value.trim(), p=document.getElementById('loginPass').value;
   if (USUARIOS[u] && USUARIOS[u].pass===p) {
     usuario={...USUARIOS[u],user:u};
-    localStorage.setItem('authOrfel',JSON.stringify(usuario));
+    sessionStorage.setItem('authOrfel',JSON.stringify(usuario));
     document.getElementById('loginOverlay').style.display='none';
     iniciarApp();
   } else { const e=document.getElementById('loginErr'); e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3000); }
 }
-function logout() { if(!confirm('¿Cerrar sesión?')) return; localStorage.removeItem('authOrfel'); window.location.href='index.html'; }
+function logout() { if(!confirm('¿Cerrar sesión?')) return; sessionStorage.removeItem('authOrfel'); window.location.href='index.html'; }
 function checkAuth() {
-  const s=localStorage.getItem('authOrfel');
+  const s=sessionStorage.getItem('authOrfel');
   if(s){usuario=JSON.parse(s);document.getElementById('loginOverlay').style.display='none';iniciarApp();}
 }
 
@@ -492,6 +499,7 @@ let empActualIdx = -1;
 let vozActiva = false, recognition = null;
 let criterioFocusIdx = 0;
 let vozEstado = 'empleado'; // empleado | resultado | observacion | accion
+let simulacroActivo = false, simulacroOrden = [], simulacroIdx = 0;
 let LOGO_BASE64 = '';
 
 const KEY_EMP  = 'orfelEmpleados';
@@ -500,7 +508,11 @@ const KEY_INSP = 'controlHigiene';
 function iniciarApp() {
   document.getElementById('dispNombre').textContent = usuario.nombre;
   document.getElementById('fechaActual').value = new Date().toISOString().split('T')[0];
-  if (usuario.rol === 'admin') document.getElementById('tabAdmin').classList.remove('hidden');
+  if (usuario.rol === 'admin') {
+    document.getElementById('tabAdmin').classList.remove('hidden');
+    document.getElementById('btnAgregarEmp').style.display = '';
+    document.getElementById('btnImportarExcel').style.display = '';
+  }
 
   // Cargar empleados
   const savedEmp = localStorage.getItem(KEY_EMP);
@@ -735,6 +747,8 @@ function toggleVoz() {
     escuchar();
   } else {
     try { recognition.stop(); } catch(e) {}
+    simulacroActivo = false; simulacroOrden = []; simulacroIdx = 0;
+    ocultarTarjetaEmpleado();
     btn.className = 'flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors';
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Activar Voz';
     box.classList.add('hidden');
@@ -759,6 +773,11 @@ function mostrarTarjetaEmpleado(emp) {
   av.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 ' + _empColor(emp);
   document.getElementById('vozEmpNombre').textContent = emp.nombre;
   document.getElementById('vozEmpDepto').textContent = emp.depto + ' · ' + (emp.genero==='F'?'Femenino':'Masculino');
+  // Ocultar progreso si no es simulacro
+  if (!simulacroActivo) {
+    const prog = document.getElementById('vozEmpProgreso');
+    if (prog) prog.classList.add('hidden');
+  }
   document.getElementById('vozEmpCentro').style.display = 'flex';
 }
 
@@ -821,9 +840,48 @@ function vozGuardarConforme(emp) {
   poblarSelector();
   renderTablaEmpleados();
   ocultarTarjetaEmpleado();
-  vozEstado = 'empleado';
-  setVozPanel('✓ ' + emp.nombre, 'Di número del siguiente empleado');
   toast('✓ ' + emp.nombre + ' — todo conforme');
+  if (simulacroActivo) {
+    simulacroIdx++;
+    setTimeout(avanzarSimulacro, 700);
+  } else {
+    vozEstado = 'empleado';
+    setVozPanel('✓ ' + emp.nombre, 'Di número del siguiente empleado');
+  }
+}
+
+function iniciarSimulacro() {
+  if (!empleados.length) { toast('No hay empleados registrados'); return; }
+  // Shuffle: Fisher-Yates
+  simulacroOrden = [...Array(empleados.length).keys()];
+  for (let i = simulacroOrden.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [simulacroOrden[i], simulacroOrden[j]] = [simulacroOrden[j], simulacroOrden[i]];
+  }
+  simulacroIdx = 0;
+  simulacroActivo = true;
+  if (!vozActiva) toggleVoz();
+  avanzarSimulacro();
+}
+
+function avanzarSimulacro() {
+  if (simulacroIdx >= simulacroOrden.length) {
+    simulacroActivo = false;
+    ocultarTarjetaEmpleado();
+    vozEstado = 'empleado';
+    setVozPanel('✓ Simulacro completado', simulacroOrden.length + ' empleados inspeccionados');
+    toast('Simulacro finalizado — ' + simulacroOrden.length + ' empleados');
+    return;
+  }
+  empActualIdx = simulacroOrden[simulacroIdx];
+  cargarEmpleadoActual();
+  const emp = empleados[empActualIdx];
+  mostrarTarjetaEmpleado(emp);
+  // Mostrar progreso en la tarjeta
+  const prog = document.getElementById('vozEmpProgreso');
+  if (prog) { prog.textContent = 'Simulacro · ' + (simulacroIdx + 1) + ' de ' + simulacroOrden.length; prog.classList.remove('hidden'); }
+  vozEstado = 'resultado';
+  setVozPanel('Simulacro ' + (simulacroIdx + 1) + '/' + simulacroOrden.length, 'Di "todo conforme" u "observaciones"');
 }
 function vozGuardarConObs(emp, obsTexto) {
   if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
@@ -925,9 +983,14 @@ function procesarComando(cmd) {
       // Ocultar TODO: banner y modal
       ocultarTarjetaEmpleado();
       cerrarModalInspeccion();
-      vozEstado = 'empleado';
-      setVozPanel('✓ Guardado', 'Di número del siguiente empleado');
       toast('✓ ' + emp.nombre + ' — inspección guardada');
+      if (simulacroActivo) {
+        simulacroIdx++;
+        setTimeout(avanzarSimulacro, 700);
+      } else {
+        vozEstado = 'empleado';
+        setVozPanel('✓ Guardado', 'Di número del siguiente empleado');
+      }
       break;
     }
   }
@@ -1126,6 +1189,7 @@ function guardarYCerrarModal() {
 }
 
 function guardarEmpleado() {
+  if (usuario.rol !== 'admin') { toast('Solo el Administrador puede gestionar empleados'); return; }
   const nombre = document.getElementById('empNombreInput').value.trim();
   const depto  = document.getElementById('empDeptoInput').value.trim();
   const genero = document.getElementById('empGeneroInput').value;
@@ -1143,6 +1207,7 @@ function guardarEmpleado() {
   toast('✓ Empleado guardado');
 }
 function eliminarEmpleado(id) {
+  if (usuario.rol !== 'admin') { toast('Solo el Administrador puede eliminar empleados'); return; }
   if(!confirm('¿Eliminar este empleado?')) return;
   empleados = empleados.filter(e=>e.id!==id);
   delete inspecciones[id];
@@ -1171,8 +1236,8 @@ function renderTablaEmpleados() {
       <td class="py-2.5 px-2"><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${badgeCls}">${badgeTxt}</span></td>
       <td class="py-2.5 px-2 text-right">
         <button onclick="seleccionarEmpleado(${e.id})" class="text-xs text-green-600 hover:text-green-700 font-semibold mr-3">Inspeccionar</button>
-        <button onclick="abrirModalEmpleado(${e.id})" class="text-xs text-blue-500 hover:text-blue-700 mr-3">Editar</button>
-        <button onclick="eliminarEmpleado(${e.id})" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>
+        ${usuario.rol === 'admin' ? `<button onclick="abrirModalEmpleado(${e.id})" class="text-xs text-blue-500 hover:text-blue-700 mr-3">Editar</button>
+        <button onclick="eliminarEmpleado(${e.id})" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>` : ''}
       </td>
     </tr>`;
   }).join('');
