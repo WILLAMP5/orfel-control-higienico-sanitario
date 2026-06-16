@@ -32,7 +32,12 @@
     </div>
     <div class="space-y-3">
       <input id="loginUser" type="text" placeholder="Usuario" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key==='Enter')intentarLogin()">
-      <input id="loginPass" type="password" placeholder="Contraseña" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+      <div class="relative">
+        <input id="loginPass" type="password" placeholder="Contraseña" class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-4 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="if(event.key==='Enter')intentarLogin()">
+        <button type="button" onclick="toggleVerPass('loginPass','eyeSan')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+          <svg id="eyeSan" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </button>
+      </div>
       <p id="loginErr" class="text-red-500 text-xs hidden">Credenciales incorrectas</p>
       <button onclick="intentarLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">Ingresar</button>
     </div>
@@ -121,15 +126,34 @@
 
     <!-- Control por Voz -->
     <div id="vozPanel" class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 mb-4 shadow-sm no-print">
-      <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div>
           <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Control por Voz <span class="text-xs font-normal text-gray-400">(Chrome Android)</span></p>
-          <p id="vozStatus" class="text-xs text-gray-400 mt-0.5">Di: "conforme" · "no conforme" · "siguiente" · "guardar"</p>
+          <p id="vozStatus" class="text-xs text-gray-400 mt-0.5">Di el nombre del área para comenzar</p>
         </div>
         <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
           Activar Voz
         </button>
+      </div>
+      <!-- Panel de estado de voz -->
+      <div id="vozEstadoBox" class="hidden rounded-xl p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+        <div class="flex items-center gap-3">
+          <div id="vozEstadoIcon" class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-lg flex-shrink-0">📍</div>
+          <div class="flex-1 min-w-0">
+            <p id="vozAreaNombre" class="text-sm font-bold text-blue-800 dark:text-blue-200 truncate">—</p>
+            <p id="vozInstruccion" class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Di el nombre del área</p>
+          </div>
+          <div id="vozEstadoBadge" class="text-xs font-bold px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex-shrink-0">ÁREA</div>
+        </div>
+      </div>
+      <!-- Instrucciones colapsadas -->
+      <div id="vozGuia" class="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
+        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">🎙 "producción"</span>
+        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">🎙 "enfriado"</span>
+        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">🎙 "envasado"</span>
+        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">🎙 "baños"</span>
+        <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">🎙 "despacho"</span>
       </div>
     </div>
 
@@ -374,7 +398,8 @@ function checkAuth() {
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 let estado = { areas: JSON.parse(JSON.stringify(AREAS)), bloqueado: false, fecha: '' };
 let vozActiva = false, recognition = null;
-let elementoActual = { aIdx:0, cIdx:0, eIdx:0 };
+let vozEstadoSan = 'area'; // area | resultado | observacion | accion
+let areaActualVozIdx = -1;
 let LOGO_BASE64 = '';
 
 function iniciarApp() {
@@ -431,11 +456,26 @@ function renderAreas() {
   const container = document.getElementById('areasContainer');
   container.innerHTML = '';
   estado.areas.forEach((area, aIdx) => {
+    const isVozArea = vozActiva && areaActualVozIdx === aIdx;
     const card = document.createElement('div');
-    card.className = 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden';
+    card.id = `area-card-${aIdx}`;
+    card.className = 'bg-white dark:bg-gray-900 rounded-xl shadow-sm overflow-hidden transition-all duration-300 '
+      + (isVozArea
+        ? 'border-2 border-blue-500 ring-2 ring-blue-300 dark:ring-blue-800'
+        : 'border border-gray-200 dark:border-gray-800');
+
+    const obsVoz = area.obs_voz || '';
+    const accVoz = area.acc_voz || '';
+    const obsBlock = (obsVoz || accVoz) ? `
+      <div class="mx-4 mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 space-y-2">
+        ${obsVoz ? `<p class="text-xs text-amber-700 dark:text-amber-400"><span class="font-bold">Obs:</span> ${obsVoz}</p>` : ''}
+        ${accVoz ? `<p class="text-xs text-green-700 dark:text-green-400"><span class="font-bold">Acc. Correctiva:</span> ${accVoz}</p>` : ''}
+      </div>` : '';
+
     card.innerHTML = `
-      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
-        <h3 class="text-sm font-bold text-gray-800 dark:text-gray-200">${area.nombre}</h3>
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 ${isVozArea ? 'bg-blue-50 dark:bg-blue-950' : 'bg-gray-50 dark:bg-gray-800'} flex items-center justify-between">
+        <h3 class="text-sm font-bold ${isVozArea ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}">${isVozArea ? '📍 ' : ''}${area.nombre}</h3>
+        ${isVozArea ? '<span class="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">● VOZ ACTIVA</span>' : ''}
       </div>
       <div class="p-4 space-y-4">
         ${area.categorias.map((cat, cIdx) => `
@@ -446,15 +486,15 @@ function renderAreas() {
             </div>
           </div>
         `).join('')}
-      </div>`;
+      </div>
+      ${obsBlock}`;
     container.appendChild(card);
   });
 }
 
 function renderElemento(aIdx, cIdx, eIdx, el) {
   const disabled = estado.bloqueado && usuario.rol !== 'admin' ? 'opacity-50 pointer-events-none' : '';
-  const isVozFocus = vozActiva && elementoActual.aIdx===aIdx && elementoActual.cIdx===cIdx && elementoActual.eIdx===eIdx;
-  const focusBorder = isVozFocus ? 'ring-2 ring-blue-500' : '';
+  const focusBorder = '';
   const ncBlock = el.estado === 'no-conforme' ? `
     <div class="mt-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg space-y-2">
       <div><label class="text-[10px] font-bold text-red-600 uppercase block mb-1">Observación</label>
@@ -513,16 +553,54 @@ function actualizarResumen() {
   document.getElementById('progressBar').style.width = total ? Math.round(c/total*100)+'%' : '0%';
 }
 
-// ─── VOZ ──────────────────────────────────────────────────────────────────────
+// ─── VOZ POR ÁREA ─────────────────────────────────────────────────────────────
+const AREA_ALIASES = [
+  { idx:0, palabras:['producción','produccion','área de producción','area produccion','produccion area'] },
+  { idx:1, palabras:['enfriado','área de enfriado','area enfriado'] },
+  { idx:2, palabras:['envasado','área de envasado','area envasado'] },
+  { idx:3, palabras:['servicios','baños','banos','vestuarios','duchas','sshh','ss hh','sanitarios','sshhh'] },
+  { idx:4, palabras:['almacén de limpieza','almacen de limpieza','limpieza','almacén limpieza'] },
+  { idx:5, palabras:['acopio','residuos','acopio de residuos','residuo'] },
+  { idx:6, palabras:['almacén de envases','almacen de envases','envases','almacén envases'] },
+  { idx:7, palabras:['producto terminado','almacén de producto terminado','almacen pt','almacén pt','producto'] },
+  { idx:8, palabras:['despacho','área de despacho','area despacho'] }
+];
+
+function detectarArea(cmd) {
+  for (const a of AREA_ALIASES) {
+    if (a.palabras.some(p => cmd.includes(p))) return a.idx;
+  }
+  return -1;
+}
+
+function setVozPanel(icono, areaNombre, instruccion, badge) {
+  const box = document.getElementById('vozEstadoBox');
+  box.classList.remove('hidden');
+  document.getElementById('vozEstadoIcon').textContent = icono;
+  document.getElementById('vozAreaNombre').textContent = areaNombre || 'Esperando área...';
+  document.getElementById('vozInstruccion').textContent = instruccion;
+  document.getElementById('vozEstadoBadge').textContent = badge || 'ÁREA';
+}
+
 function initVoz() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { document.getElementById('vozPanel').innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Control por voz no disponible en este navegador. Usa Chrome en Android.</p>'; return; }
+  if (!SR) {
+    document.getElementById('vozPanel').innerHTML = '<p class="text-xs text-gray-400 text-center py-2">Voz no disponible. Usa Chrome en Android.</p>';
+    return;
+  }
   recognition = new SR();
   recognition.lang = 'es-PE';
   recognition.continuous = false;
   recognition.interimResults = false;
-  recognition.onresult = (e) => procesarComando(e.results[0][0].transcript.toLowerCase().trim());
-  recognition.onerror = () => { if (vozActiva) setTimeout(escuchar, 800); };
+  recognition.onresult = (e) => {
+    const cmd = e.results[0][0].transcript.toLowerCase().trim();
+    setVozStatus(`"${cmd}"`);
+    setTimeout(() => procesarComando(cmd), 150);
+  };
+  recognition.onerror = (e) => {
+    if (e.error !== 'no-speech' && vozActiva) setTimeout(escuchar, 800);
+    else if (vozActiva) setTimeout(escuchar, 400);
+  };
   recognition.onend = () => { if (vozActiva) setTimeout(escuchar, 400); };
 }
 
@@ -531,71 +609,116 @@ function toggleVoz() {
   vozActiva = !vozActiva;
   const btn = document.getElementById('micBtn');
   if (vozActiva) {
+    vozEstadoSan = 'area';
+    areaActualVozIdx = -1;
     btn.className = 'flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors mic-active';
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Escuchando...';
-    setVozStatus('Esperando comando...');
+    setVozPanel('🎙', 'Esperando área...', 'Di el nombre del área a inspeccionar', 'ÁREA');
+    document.getElementById('vozGuia').classList.remove('hidden');
     escuchar();
   } else {
     try { recognition.stop(); } catch(e) {}
     btn.className = 'flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors';
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Activar Voz';
-    setVozStatus('Di: "conforme" · "no conforme" · "siguiente" · "guardar"');
+    document.getElementById('vozEstadoBox').classList.add('hidden');
+    document.getElementById('vozGuia').classList.remove('hidden');
+    setVozStatus('Di el nombre del área para comenzar');
+    areaActualVozIdx = -1;
   }
   renderAreas();
 }
+
 function escuchar() { try { recognition.start(); } catch(e) {} }
 function setVozStatus(msg) { document.getElementById('vozStatus').textContent = msg; }
 
 function procesarComando(cmd) {
-  const el = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
-  const areaName = estado.areas[elementoActual.aIdx]?.nombre || '';
-  const elName = el?.nombre || '';
+  if (estado.bloqueado && usuario.rol !== 'admin') { toast('🔒','Inspección bloqueada'); return; }
 
-  if (cmd.includes('conforme') && !cmd.includes('no')) {
-    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'conforme');
-    setVozStatus(`✓ Conforme: ${elName}`);
-    avanzar();
-  } else if (cmd.includes('no conforme') || cmd.includes('no conf') || cmd.includes('falla') || cmd.includes('mal')) {
-    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'no-conforme');
-    setVozStatus(`✗ No Conforme: ${elName}`);
-    avanzar();
-  } else if (cmd.includes('pendiente') || cmd.includes('skip') || cmd.includes('saltar')) {
-    setEstado(elementoActual.aIdx, elementoActual.cIdx, elementoActual.eIdx, 'pendiente');
-    setVozStatus(`○ Pendiente: ${elName}`);
-    avanzar();
-  } else if (cmd.includes('siguiente') || cmd.includes('adelante')) {
-    avanzar();
-    const newEl = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
-    setVozStatus(`→ ${newEl?.nombre || 'Fin'}`);
-  } else if (cmd.includes('anterior') || cmd.includes('atrás') || cmd.includes('atras')) {
-    retroceder();
-    const newEl = estado.areas[elementoActual.aIdx]?.categorias[elementoActual.cIdx]?.elementos[elementoActual.eIdx];
-    setVozStatus(`← ${newEl?.nombre || ''}`);
-  } else if (cmd.includes('guardar') || cmd.includes('terminar') || cmd.includes('listo')) {
-    guardarInspeccion();
-    setVozStatus('✓ Inspección guardada');
-  } else {
-    setVozStatus(`No entendí: "${cmd}"`);
+  switch (vozEstadoSan) {
+    case 'area': {
+      const idx = detectarArea(cmd);
+      if (idx >= 0) {
+        areaActualVozIdx = idx;
+        vozEstadoSan = 'resultado';
+        const nombre = estado.areas[idx].nombre;
+        setVozPanel('📍', nombre, 'Di "todo conforme" u "observado"', 'RESULTADO');
+        document.getElementById('vozGuia').classList.add('hidden');
+        setVozStatus(`Área: ${nombre}`);
+        renderAreas();
+        setTimeout(() => {
+          const card = document.getElementById(`area-card-${idx}`);
+          if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+        }, 200);
+      } else {
+        setVozStatus(`No reconocí el área: "${cmd}"`);
+      }
+      break;
+    }
+    case 'resultado': {
+      const area = estado.areas[areaActualVozIdx];
+      if (cmd.includes('todo conforme') || cmd.includes('todos conformes') || (cmd.includes('conforme') && !cmd.includes('no'))) {
+        area.categorias.forEach(cat => cat.elementos.forEach(el => {
+          el.estado = 'conforme';
+          delete el.nc_obs; delete el.nc_acc;
+        }));
+        delete area.obs_voz; delete area.acc_voz;
+        guardarSilencioso();
+        actualizarResumen();
+        vozEstadoSan = 'area';
+        areaActualVozIdx = -1;
+        setVozPanel('✓', area.nombre + ' — TODO CONFORME', 'Di el nombre de la siguiente área', 'ÁREA');
+        document.getElementById('vozGuia').classList.remove('hidden');
+        setVozStatus('✓ Todo conforme registrado');
+        renderAreas();
+        toast('✓', area.nombre + ': Todo conforme');
+      } else if (cmd.includes('observ')) {
+        const restoTexto = cmd.replace(/^.*?observ[a-zó]*/i, '').trim();
+        if (restoTexto.length > 3) {
+          area.obs_voz = restoTexto;
+          guardarSilencioso();
+          vozEstadoSan = 'accion';
+          setVozPanel('📝', area.nombre, 'Di la Acción Correctiva...', 'ACCIÓN');
+          setVozStatus(`Obs. guardada: "${restoTexto.substring(0,40)}"`);
+        } else {
+          vozEstadoSan = 'observacion';
+          setVozPanel('📝', area.nombre, 'Di la observación del hallazgo encontrado', 'OBSERVACIÓN');
+          setVozStatus('Escuchando observación...');
+        }
+      } else if (cmd.includes('cancelar') || cmd.includes('salir')) {
+        vozEstadoSan = 'area';
+        areaActualVozIdx = -1;
+        setVozPanel('🎙', 'Esperando área...', 'Di el nombre del área a inspeccionar', 'ÁREA');
+        document.getElementById('vozGuia').classList.remove('hidden');
+        renderAreas();
+      } else {
+        setVozStatus(`Di "todo conforme" u "observado" — escuché: "${cmd}"`);
+      }
+      break;
+    }
+    case 'observacion': {
+      const area = estado.areas[areaActualVozIdx];
+      area.obs_voz = cmd;
+      guardarSilencioso();
+      vozEstadoSan = 'accion';
+      setVozPanel('📝', area.nombre, 'Di la Acción Correctiva a tomar', 'ACCIÓN');
+      setVozStatus(`Obs: "${cmd.substring(0,40)}..."`);
+      break;
+    }
+    case 'accion': {
+      const area = estado.areas[areaActualVozIdx];
+      area.acc_voz = cmd;
+      guardarSilencioso();
+      const nombreArea = area.nombre;
+      vozEstadoSan = 'area';
+      areaActualVozIdx = -1;
+      setVozPanel('✓', nombreArea + ' — OBSERVACIÓN REGISTRADA', 'Di el nombre de la siguiente área', 'ÁREA');
+      document.getElementById('vozGuia').classList.remove('hidden');
+      setVozStatus('Observación y acción guardadas');
+      renderAreas();
+      toast('📝', 'Observación registrada en ' + nombreArea);
+      break;
+    }
   }
-  renderAreas();
-  scrollToElementoActual();
-}
-
-function avanzar() {
-  const area = estado.areas[elementoActual.aIdx];
-  const cat = area.categorias[elementoActual.cIdx];
-  if (elementoActual.eIdx < cat.elementos.length - 1) { elementoActual.eIdx++; return; }
-  if (elementoActual.cIdx < area.categorias.length - 1) { elementoActual.cIdx++; elementoActual.eIdx = 0; return; }
-  if (elementoActual.aIdx < estado.areas.length - 1) { elementoActual.aIdx++; elementoActual.cIdx = 0; elementoActual.eIdx = 0; return; }
-}
-function retroceder() {
-  if (elementoActual.eIdx > 0) { elementoActual.eIdx--; return; }
-  if (elementoActual.cIdx > 0) { elementoActual.cIdx--; elementoActual.eIdx = estado.areas[elementoActual.aIdx].categorias[elementoActual.cIdx].elementos.length - 1; return; }
-  if (elementoActual.aIdx > 0) { elementoActual.aIdx--; const a = estado.areas[elementoActual.aIdx]; elementoActual.cIdx = a.categorias.length-1; elementoActual.eIdx = a.categorias[elementoActual.cIdx].elementos.length-1; }
-}
-function scrollToElementoActual() {
-  const el = document.getElementById(`el-${elementoActual.aIdx}-${elementoActual.cIdx}-${elementoActual.eIdx}`);
-  if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
 // ─── PERSISTENCIA ─────────────────────────────────────────────────────────────
@@ -622,7 +745,8 @@ function limpiarFormulario() {
   if (!confirm('¿Iniciar nueva inspección? Se perderán los datos actuales.')) return;
   localStorage.removeItem('controlSaneamiento');
   estado = { areas: JSON.parse(JSON.stringify(AREAS)), bloqueado:false, fecha: new Date().toISOString().split('T')[0] };
-  elementoActual = { aIdx:0, cIdx:0, eIdx:0 };
+  vozEstadoSan = 'area';
+  areaActualVozIdx = -1;
   ['observaciones','accionesCorrectivas','elaboradoPor','revisadoPor','aprobadoPor'].forEach(id => document.getElementById(id).value = '');
   renderAreas();
   actualizarResumen();
@@ -665,6 +789,12 @@ function generarReporte() {
         if (el.nc_acc) aHTML += `<p class="text-xs text-green-600 italic ml-4 mb-1">Acc: ${el.nc_acc}</p>`;
       });
     });
+    if (area.obs_voz || area.acc_voz) {
+      aHTML += `<div class="mt-2 p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800 text-xs">`;
+      if (area.obs_voz) aHTML += `<p class="text-amber-700 dark:text-amber-400"><b>Observación:</b> ${area.obs_voz}</p>`;
+      if (area.acc_voz) aHTML += `<p class="text-green-700 dark:text-green-400 mt-0.5"><b>Acción Correctiva:</b> ${area.acc_voz}</p>`;
+      aHTML += '</div>';
+    }
     if (aHTML) html += `<div class="mb-4"><h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">${area.nombre}</h4>${aHTML}</div>`;
   });
   const pct = total ? Math.round(conf/total*100) : 0;
@@ -721,7 +851,10 @@ function exportarPDF() {
         if (el.nc_obs) { checkY(8); doc.setFontSize(7); doc.setTextColor(185,28,28); const ls=doc.splitTextToSize('  Obs: '+el.nc_obs,W-M*2-20); doc.text(ls,M+12,y); y+=ls.length*4; }
         if (el.nc_acc) { checkY(8); doc.setFontSize(7); doc.setTextColor(22,101,52); const ls=doc.splitTextToSize('  Acc: '+el.nc_acc,W-M*2-20); doc.text(ls,M+12,y); y+=ls.length*4; }
       }); y+=3;
-    }); y+=5;
+    });
+    if (area.obs_voz) { checkY(10); doc.setFontSize(8); doc.setTextColor(180,83,9); const ls=doc.splitTextToSize('Observación del área: '+area.obs_voz,W-M*2-10); doc.text(ls,M+6,y); y+=ls.length*5; }
+    if (area.acc_voz) { checkY(10); doc.setFontSize(8); doc.setTextColor(22,101,52); const ls=doc.splitTextToSize('Acción Correctiva: '+area.acc_voz,W-M*2-10); doc.text(ls,M+6,y); y+=ls.length*5; }
+    y+=5;
   });
 
   const obs = document.getElementById('observaciones').value;
@@ -748,6 +881,17 @@ function exportarPDF() {
 }
 
 // ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function toggleVerPass(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>';
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
+  }
+}
 function switchTab(id, btn) {
   ['inspeccion','reporte','admin'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+id).classList.remove('hidden');
