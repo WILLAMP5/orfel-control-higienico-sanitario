@@ -815,6 +815,11 @@ function procesarComando(cmd) {
     case 'accion': {
       const area = estado.areas[areaActualVozIdx];
       area.acc_voz = cmd;
+      // Marcar como conforme todos los ítems que siguen pendientes
+      area.categorias.forEach(cat => cat.elementos.forEach(el => {
+        if (!el.estado || el.estado === 'pendiente') el.estado = 'conforme';
+      }));
+      actualizarResumen();
       guardarSilencioso();
       const nombreArea = area.nombre;
       vozEstadoSan = 'area';
