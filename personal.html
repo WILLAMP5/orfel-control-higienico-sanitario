@@ -85,15 +85,21 @@
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div class="flex-1">
           <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Control por Voz <span class="text-xs font-normal text-gray-400">(Chrome · Android)</span></p>
-          <!-- Indicador de estado activo -->
-          <div id="vozEstadoBox" class="hidden mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span id="vozEstadoLabel" class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"></span>
-              <span id="vozEmpleadoLabel" class="text-sm font-bold text-gray-800 dark:text-gray-200"></span>
+          <!-- Indicador activo -->
+          <div id="vozEstadoBox" class="hidden mt-2 space-y-2">
+            <!-- Tarjeta de confirmación de identidad -->
+            <div id="vozConfCard" class="hidden bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
+              <p class="text-[10px] font-semibold text-blue-500 dark:text-blue-400 uppercase tracking-wide">Confirmando identidad</p>
+              <p id="vozConfNombre" class="text-xl font-extrabold text-blue-900 dark:text-blue-100 mt-0.5 leading-tight"></p>
+              <p id="vozConfDepto" class="text-xs text-blue-500 dark:text-blue-400 mt-0.5"></p>
             </div>
-            <p id="vozStatus" class="text-xs text-green-600 dark:text-green-400 mt-1 font-medium"></p>
+            <!-- Estado y siguiente instrucción -->
+            <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2 flex-wrap">
+              <span id="vozEstadoLabel" class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 flex-shrink-0"></span>
+              <p id="vozStatus" class="text-xs text-green-600 dark:text-green-400 font-medium"></p>
+            </div>
           </div>
-          <p id="vozStatusInactivo" class="text-xs text-gray-400 mt-0.5">Di el número del empleado (ej: "uno", "dos"...) → "conforme" o "observación"</p>
+          <p id="vozStatusInactivo" class="text-xs text-gray-400 mt-0.5">Di número + resultado: <em>"uno conforme"</em> o <em>"dos observación no usa cofia"</em></p>
         </div>
         <button id="micBtn" onclick="toggleVoz()" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
@@ -708,7 +714,7 @@ function toggleVoz() {
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>Escuchando...';
     box.classList.remove('hidden');
     inactivo.classList.add('hidden');
-    setVozPanel('🎤 Esperando número', '', 'Di el número del empleado: uno, dos, tres...');
+    setVozPanel('🎤 Escuchando', 'Di número + resultado: "uno conforme" o "dos observación [hallazgo]"', false);
     escuchar();
   } else {
     try { recognition.stop(); } catch(e) {}
@@ -720,10 +726,18 @@ function toggleVoz() {
 }
 function escuchar() { try { recognition.start(); } catch(e) {} }
 
-function setVozPanel(estado, nombre, instruccion) {
+function setVozPanel(estado, instruccion, mostrarEmpleado = false) {
   document.getElementById('vozEstadoLabel').textContent = estado;
-  document.getElementById('vozEmpleadoLabel').textContent = nombre;
   document.getElementById('vozStatus').textContent = instruccion;
+  const card = document.getElementById('vozConfCard');
+  if (mostrarEmpleado && empActualIdx >= 0 && empleados[empActualIdx]) {
+    const emp = empleados[empActualIdx];
+    card.classList.remove('hidden');
+    document.getElementById('vozConfNombre').textContent = emp.nombre;
+    document.getElementById('vozConfDepto').textContent = emp.depto + ' · ' + (emp.genero === 'F' ? 'Femenino' : 'Masculino');
+  } else {
+    card.classList.add('hidden');
+  }
 }
 
 // ── NÚMEROS EN ESPAÑOL ────────────────────────────────────────────────────────
@@ -746,84 +760,120 @@ function parsearNumero(cmd) {
   return null;
 }
 
+// ── HELPERS DE VOZ ────────────────────────────────────────────────────────────
+function quitarNumeroInicio(cmd) {
+  return cmd.replace(/^(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|diecis[eé]is|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintid[oó]s|veintitr[eé]s|veinticuatro|veinticinco|veintis[eé]is|veintisiete|veintiocho|veintinueve|treinta|cuarenta|cincuenta|\d+)\s*/i, '').trim();
+}
+function marcarPendientesConforme(emp) {
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  getCriterios(emp.genero).forEach(c => {
+    if (!inspecciones[emp.id].criterios[c.id] || inspecciones[emp.id].criterios[c.id] === 'pendiente') {
+      inspecciones[emp.id].criterios[c.id] = 'conforme';
+    }
+  });
+}
+function vozGuardarConforme(emp) {
+  marcarTodoConforme();
+  guardarInspeccionEmpleado();
+  poblarSelector();
+  vozEstado = 'empleado';
+  setVozPanel('✓ Guardado', 'Di número del siguiente empleado', false);
+}
+function vozGuardarConObs(emp, obsTexto) {
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  if (obsTexto) {
+    inspecciones[emp.id].obs = obsTexto;
+    document.getElementById('obsEmpleado').value = obsTexto;
+  }
+}
+
 // ── MÁQUINA DE ESTADOS DE VOZ ─────────────────────────────────────────────────
-// Flujo: 'empleado' → di número → 'resultado' → "conforme" o "observación"
-//        → 'observacion' → di texto → 'accion' → di texto → guarda → 'empleado'
+// Estado 'empleado': espera "[número] conforme" o "[número] observación [texto]"
+// También acepta solo el número → pasa a 'resultado' mostrando el nombre para confirmar
+// Estado 'observacion': espera texto libre de hallazgo
+// Estado 'accion': espera texto libre de acción correctiva
 function procesarComando(cmd) {
   switch (vozEstado) {
 
     case 'empleado': {
       const num = parsearNumero(cmd);
-      if (num !== null && num >= 1 && num <= empleados.length) {
-        empActualIdx = num - 1;
-        cargarEmpleadoActual();
-        vozEstado = 'resultado';
-        const nombre = empleados[empActualIdx].nombre;
-        setVozPanel('👤 #' + num, nombre, 'Di "conforme" o "observación"');
-        document.getElementById('inspCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (num === null || num < 1 || num > empleados.length) {
+        setVozPanel('❓', `Escuché: "${cmd.slice(0,30)}" — Di un número: uno, dos...`, false);
+        break;
+      }
+      empActualIdx = num - 1;
+      cargarEmpleadoActual();
+      const emp = empleados[empActualIdx];
+      const resto = quitarNumeroInicio(cmd);
+      const esConf = (resto.includes('conforme') || resto.includes('bien') || resto.includes('ok')) && !resto.includes('no conf');
+      const esObs  = resto.includes('observaci');
+
+      if (esConf) {
+        // "[número] conforme" en un solo utterance
+        vozGuardarConforme(emp);
+      } else if (esObs) {
+        // "[número] observación [texto]"
+        const obsTexto = resto.replace(/.*observaci[oó]n[:\s]*/i, '').trim();
+        vozGuardarConObs(emp, obsTexto);
+        if (obsTexto.length > 2) {
+          vozEstado = 'accion';
+          setVozPanel('📝 Obs lista', 'Di la Acción Correctiva...', true);
+        } else {
+          vozEstado = 'observacion';
+          setVozPanel('📝 Escuchando...', 'Di el hallazgo encontrado', true);
+        }
       } else {
-        setVozPanel('❓ No entendí', '', `Escuché: "${cmd}" — Di un número: uno, dos, tres...`);
+        // Solo el número → mostrar nombre para confirmación, esperar resultado
+        vozEstado = 'resultado';
+        setVozPanel('👤 #' + num, 'Di "conforme" o "observación [hallazgo]"', true);
+        document.getElementById('inspCard').scrollIntoView({ behavior:'smooth', block:'start' });
       }
       break;
     }
 
     case 'resultado': {
       const emp = empleados[empActualIdx];
-      const esConforme = (cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('ok')) && !cmd.includes('no');
-      const esObservacion = cmd.includes('observaci');
+      const esConf = (cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('ok')) && !cmd.includes('no conf');
+      const esObs  = cmd.includes('observaci');
 
-      if (esConforme) {
-        marcarTodoConforme();
-        guardarInspeccionEmpleado();
-        poblarSelector();
-        vozEstado = 'empleado';
-        setVozPanel('✓ Guardado', emp.nombre, 'Di el número del siguiente empleado');
-
-      } else if (esObservacion) {
-        // El texto puede venir en el mismo utterance: "observación no usa cofia"
-        const resto = cmd.replace(/.*observaci[oó]n[:\s]*/i, '').trim();
-        if (resto.length > 2) {
-          document.getElementById('obsEmpleado').value = resto;
-          guardarObsEmpleado();
+      if (esConf) {
+        vozGuardarConforme(emp);
+      } else if (esObs) {
+        const obsTexto = cmd.replace(/.*observaci[oó]n[:\s]*/i, '').trim();
+        vozGuardarConObs(emp, obsTexto);
+        if (obsTexto.length > 2) {
           vozEstado = 'accion';
-          setVozPanel('📝 Obs guardada', emp.nombre, 'Di la Acción Correctiva...');
+          setVozPanel('📝 Obs lista', 'Di la Acción Correctiva...', true);
         } else {
           vozEstado = 'observacion';
-          setVozPanel('📝 Escuchando obs...', emp.nombre, 'Di el hallazgo encontrado');
+          setVozPanel('📝 Escuchando...', 'Di el hallazgo encontrado', true);
         }
-
       } else {
-        setVozPanel('❓ No entendí', emp.nombre, `Escuché: "${cmd}" — Di "conforme" u "observación"`);
+        setVozPanel('❓', `"${cmd.slice(0,25)}" — Di "conforme" u "observación [hallazgo]"`, true);
       }
       break;
     }
 
     case 'observacion': {
       const emp = empleados[empActualIdx];
-      document.getElementById('obsEmpleado').value = cmd;
-      guardarObsEmpleado();
+      vozGuardarConObs(emp, cmd);
       vozEstado = 'accion';
-      const preview = cmd.length > 35 ? cmd.substring(0, 35) + '...' : cmd;
-      setVozPanel('📝 "' + preview + '"', emp.nombre, 'Di la Acción Correctiva...');
+      const prev = cmd.length > 30 ? cmd.slice(0,30) + '...' : cmd;
+      setVozPanel('📝 "' + prev + '"', 'Di la Acción Correctiva...', true);
       break;
     }
 
     case 'accion': {
       const emp = empleados[empActualIdx];
+      inspecciones[emp.id].acc = cmd;
       document.getElementById('accEmpleado').value = cmd;
-      // Criterios pendientes → conforme (pasaron el chequeo; la obs describe el hallazgo puntual)
-      if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
-      getCriterios(emp.genero).forEach(c => {
-        if (!inspecciones[emp.id].criterios[c.id] || inspecciones[emp.id].criterios[c.id] === 'pendiente') {
-          inspecciones[emp.id].criterios[c.id] = 'conforme';
-        }
-      });
+      marcarPendientesConforme(emp);
       actualizarConformidad();
       guardarObsEmpleado();
       guardarInspeccionEmpleado();
       poblarSelector();
       vozEstado = 'empleado';
-      setVozPanel('✓ Guardado con obs.', emp.nombre, 'Di el número del siguiente empleado');
+      setVozPanel('✓ Guardado con obs.', 'Di número del siguiente empleado', false);
       break;
     }
   }
