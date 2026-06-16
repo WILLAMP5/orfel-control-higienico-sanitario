@@ -377,16 +377,25 @@
       <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Inspección ya registrada — solo el Administrador puede modificarla.</p>
     </div>
     <div class="flex-1 overflow-y-auto px-4 py-3">
-      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Criterios de Higiene</p>
-      <div id="criteriosContainerModal" class="space-y-1.5"></div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 mt-3 border-t border-gray-100 dark:border-gray-800">
-        <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Observación</label>
-          <textarea id="obsEmpleadoModal" rows="2" placeholder="Describa el hallazgo..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Acción Correctiva</label>
-          <textarea id="accEmpleadoModal" rows="2" placeholder="Acción tomada..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Criterios de Higiene <span class="text-gray-300 dark:text-gray-600 font-normal normal-case">(toca para cambiar estado)</span></p>
+      <div id="criteriosContainerModal"></div>
+      <!-- Tarjeta de observación: visible solo cuando hay obs -->
+      <div id="obsCardModal" class="hidden mt-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-700 rounded-xl">
+        <p class="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase mb-1">⚠ Observado</p>
+        <p id="obsCardTexto" class="text-sm text-amber-800 dark:text-amber-300 leading-snug"></p>
+        <p class="text-xs text-amber-600 dark:text-amber-500 mt-1.5"><span class="font-semibold">Acción correctiva:</span> <span id="obsCardAccion"></span></p>
+      </div>
+      <!-- Campos de edición obs/acción -->
+      <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Observación</label>
+            <textarea id="obsEmpleadoModal" rows="2" placeholder="Describa el hallazgo..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Acción Correctiva</label>
+            <textarea id="accEmpleadoModal" rows="2" placeholder="Acción tomada..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
+          </div>
         </div>
       </div>
     </div>
@@ -802,11 +811,11 @@ function procesarComando(cmd) {
     case 'accion': {
       const emp = empleados[empActualIdx];
       document.getElementById('accEmpleado').value = cmd;
-      // Marcar criterios pendientes como no-conforme (la observación implica hallazgo)
+      // Criterios pendientes → conforme (pasaron el chequeo; la obs describe el hallazgo puntual)
       if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
       getCriterios(emp.genero).forEach(c => {
         if (!inspecciones[emp.id].criterios[c.id] || inspecciones[emp.id].criterios[c.id] === 'pendiente') {
-          inspecciones[emp.id].criterios[c.id] = 'no-conforme';
+          inspecciones[emp.id].criterios[c.id] = 'conforme';
         }
       });
       actualizarConformidad();
@@ -877,7 +886,7 @@ function abrirModalInspeccion(idx) {
   document.getElementById('modalInspBtnConf').style.display = soloLect ? 'none' : '';
   document.getElementById('modalInspBtnSig').style.display  = soloLect ? 'none' : '';
 
-  renderCriteriosModal();
+  renderCriteriosModal(); // también llama renderObsCardModal internamente
   actualizarConformidadModal();
   const m = document.getElementById('modalInspeccion');
   m.classList.remove('hidden');
@@ -912,19 +921,47 @@ function renderCriteriosModal() {
   const container = document.getElementById('criteriosContainerModal');
   container.innerHTML = criterios.map((c,i) => {
     const val = insp.criterios[c.id] || 'pendiente';
-    const vColor = val==='conforme'?'text-green-600':val==='no-conforme'?'text-red-600':'text-gray-400';
-    const vLabel = val==='conforme'?'✓ Conf.':val==='no-conforme'?'✗ No Conf.':val==='no-aplica'?'— N/A':'○ Pend.';
-    const btnsPart = soloLectura
-      ? `<span class="text-sm font-bold ${vColor}">${vLabel}</span>`
-      : `<button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-green-50 dark:hover:bg-green-950'}" onclick="setCriterioModal(${i},'conforme')">✓</button>
-        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-conforme'?'bg-red-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950'}" onclick="setCriterioModal(${i},'no-conforme')">✗</button>
-        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-aplica'?'bg-gray-500 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}" onclick="setCriterioModal(${i},'no-aplica')">N/A</button>
-        <span class="text-[10px] font-semibold w-16 text-right ${vColor}">${vLabel}</span>`;
-    return `<div class="flex items-center justify-between gap-3 rounded-xl p-2 border border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all">
-      <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">${c.label}</span>
-      <div class="flex items-center gap-1 flex-shrink-0">${btnsPart}</div>
+    let chipCls, chipLabel;
+    if      (val === 'conforme')    { chipCls = 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300'; chipLabel = '✓ Conforme'; }
+    else if (val === 'no-conforme') { chipCls = 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'; chipLabel = '⚠ Observado'; }
+    else if (val === 'no-aplica')   { chipCls = 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-400'; chipLabel = '— N/A'; }
+    else                            { chipCls = 'bg-gray-50 dark:bg-gray-800 text-gray-400 border border-dashed border-gray-300 dark:border-gray-600'; chipLabel = '○ Pendiente'; }
+    const chip = soloLectura
+      ? `<span class="text-xs font-semibold px-3 py-1 rounded-full ${chipCls} whitespace-nowrap">${chipLabel}</span>`
+      : `<button onclick="ciclarCriterioModal(${i})" class="criteria-btn text-xs font-semibold px-3 py-1.5 rounded-full ${chipCls} whitespace-nowrap">${chipLabel}</button>`;
+    return `<div class="flex items-center justify-between gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800/70 last:border-0">
+      <span class="text-sm text-gray-700 dark:text-gray-300 leading-snug">${c.label}</span>
+      <div class="flex-shrink-0">${chip}</div>
     </div>`;
   }).join('');
+  renderObsCardModal();
+}
+
+function ciclarCriterioModal(idx) {
+  if (window._soloLectura) return;
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  const criterios = getCriterios(emp.genero);
+  const cur = inspecciones[emp.id].criterios[criterios[idx].id] || 'pendiente';
+  const ciclo = { 'pendiente':'conforme', 'conforme':'no-conforme', 'no-conforme':'no-aplica', 'no-aplica':'conforme' };
+  inspecciones[emp.id].criterios[criterios[idx].id] = ciclo[cur] || 'conforme';
+  actualizarConformidadModal();
+  renderCriteriosModal();
+  guardarInspecciones();
+}
+
+function renderObsCardModal() {
+  const obs = (document.getElementById('obsEmpleadoModal')?.value || '').trim();
+  const acc = (document.getElementById('accEmpleadoModal')?.value || '').trim();
+  const card = document.getElementById('obsCardModal');
+  if (!card) return;
+  if (obs) {
+    card.classList.remove('hidden');
+    document.getElementById('obsCardTexto').textContent = obs;
+    document.getElementById('obsCardAccion').textContent = acc || '—';
+  } else {
+    card.classList.add('hidden');
+  }
 }
 
 function actualizarConformidadModal() {
@@ -948,6 +985,7 @@ function guardarObsModal() {
   inspecciones[emp.id].obs = document.getElementById('obsEmpleadoModal').value;
   inspecciones[emp.id].acc = document.getElementById('accEmpleadoModal').value;
   guardarInspecciones();
+  renderObsCardModal();
 }
 
 function marcarTodoConformeModal() {
