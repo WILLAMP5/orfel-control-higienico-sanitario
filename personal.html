@@ -262,20 +262,21 @@
       <div class="overflow-x-auto">
         <table class="text-xs border-collapse min-w-full" id="tablaReporteWrapper">
           <thead>
-            <tr class="bg-[#2c6e49] text-white text-center">
-              <th class="p-2 border border-green-800 text-left min-w-[130px]">Personal</th>
-              <th class="p-2 border border-green-800 min-w-[80px]">Área</th>
-              <th class="p-2 border border-green-800 min-w-[55px]">Salud</th>
-              <th class="p-2 border border-green-800 min-w-[55px]">Uniforme</th>
-              <th class="p-2 border border-green-800 min-w-[55px]">Calzado</th>
-              <th class="p-2 border border-green-800 min-w-[40px]">Uñas</th>
-              <th class="p-2 border border-green-800 min-w-[55px]">Cabello</th>
-              <th class="p-2 border border-green-800 min-w-[65px]">Afeit./ Maquil.</th>
-              <th class="p-2 border border-green-800 min-w-[55px]">Objetos</th>
-              <th class="p-2 border border-green-800 min-w-[50px]">Lavado</th>
+            <tr class="bg-[#2c6e49] text-white text-center text-[10px] leading-tight">
+              <th class="p-2 border border-green-800 text-left min-w-[140px]">Nombre del Personal</th>
+              <th class="p-2 border border-green-800 min-w-[75px]">Área / Dpto.</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Estado de Salud / Sin Heridas ni Cortes</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Uniforme Completo y Limpio</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Calzado de Trabajo Limpio</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Uñas Cortas y Sin Esmalte</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Cabello Recogido / Cofia</th>
+              <th class="p-2 border border-green-800 min-w-[65px]">Afeitado / Sin Barba <span class="text-green-300">(♂)</span></th>
+              <th class="p-2 border border-green-800 min-w-[65px]">Sin Maquillaje <span class="text-pink-300">(♀)</span></th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Sin Objetos Personales (joyas, etc.)</th>
+              <th class="p-2 border border-green-800 min-w-[68px]">Verificación de Lavado de Manos</th>
               <th class="p-2 border border-green-800 min-w-[120px] text-left">Observaciones</th>
               <th class="p-2 border border-green-800 min-w-[120px] text-left">Acc. Correctiva</th>
-              <th class="p-2 border border-green-800 min-w-[40px]">%</th>
+              <th class="p-2 border border-green-800 min-w-[38px]">%</th>
             </tr>
           </thead>
           <tbody id="tablaReporte"></tbody>
@@ -877,11 +878,15 @@ function importarExcel(input) {
 }
 
 // ─── REPORTE ──────────────────────────────────────────────────────────────────
+const NA_CELDA  = '<span class="text-gray-300 font-bold" style="font-size:15px">—</span>';
+const PEND_CELDA = '<span class="text-gray-300 font-bold" style="font-size:11px">·</span>';
+
 function fmtCelda(val) {
-  if (val === 'conforme')    return '<span class="font-bold text-green-600 text-base">✓</span>';
-  if (val === 'no-conforme') return '<span class="font-bold text-red-600 text-base">✗</span>';
-  if (val === 'no-aplica')   return '<span class="text-gray-400 font-bold">—</span>';
-  return '<span class="text-gray-300">·</span>';
+  if (val === undefined || val === null) return PEND_CELDA;
+  if (val === 'conforme')    return '<span class="font-black text-green-600" style="font-size:18px;line-height:1">✓</span>';
+  if (val === 'no-conforme') return '<span class="font-black text-red-600" style="font-size:18px;line-height:1">✗</span>';
+  if (val === 'no-aplica')   return NA_CELDA;
+  return PEND_CELDA;
 }
 
 function generarReporte() {
@@ -903,7 +908,7 @@ function generarReporte() {
 
   const tbody = document.getElementById('tablaReporte');
   if (!total) {
-    tbody.innerHTML = '<tr><td colspan="13" class="text-center py-8 text-gray-400 text-sm">Sin inspecciones registradas hoy</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center py-8 text-gray-400 text-sm">Sin inspecciones registradas hoy</td></tr>';
     return;
   }
 
@@ -914,21 +919,25 @@ function generarReporte() {
       const c = insp.criterios || {};
       const pctEmp = insp.conformidad;
       const clr = pctEmp >= 80 ? 'text-green-600' : pctEmp >= 50 ? 'text-amber-500' : 'text-red-600';
-      const afeitMaquil = e.genero === 'M' ? fmtCelda(c.afeitado) : fmtCelda(c.maquillaje);
-      return `<tr class="even:bg-gray-50 dark:even:bg-gray-800/20 border-b border-gray-100 dark:border-gray-800 text-center text-xs">
-        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">${e.nombre}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-500 whitespace-nowrap">${e.depto}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.salud)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.uniforme)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.calzado)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.unas)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.cabello)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${afeitMaquil}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.objetos)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.lavado)}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400">${insp.obs||'—'}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400">${insp.acc||'—'}</td>
-        <td class="p-2 border border-gray-200 dark:border-gray-700 font-bold ${clr}">${pctEmp}%</td>
+      // Criterios género-específicos: mostrar N/A para el género que no aplica
+      const afeit  = e.genero === 'M' ? fmtCelda(c.afeitado)   : NA_CELDA;
+      const maquil = e.genero === 'F' ? fmtCelda(c.maquillaje) : NA_CELDA;
+      const tdC = 'p-2 border border-gray-200 dark:border-gray-700 text-center';
+      return `<tr class="even:bg-gray-50 dark:even:bg-gray-800/20 border-b border-gray-100 dark:border-gray-800">
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap text-xs">${e.nombre}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-500 whitespace-nowrap text-xs">${e.depto}</td>
+        <td class="${tdC}">${fmtCelda(c.salud)}</td>
+        <td class="${tdC}">${fmtCelda(c.uniforme)}</td>
+        <td class="${tdC}">${fmtCelda(c.calzado)}</td>
+        <td class="${tdC}">${fmtCelda(c.unas)}</td>
+        <td class="${tdC}">${fmtCelda(c.cabello)}</td>
+        <td class="${tdC}">${afeit}</td>
+        <td class="${tdC}">${maquil}</td>
+        <td class="${tdC}">${fmtCelda(c.objetos)}</td>
+        <td class="${tdC}">${fmtCelda(c.lavado)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400 text-xs">${insp.obs||'—'}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400 text-xs">${insp.acc||'—'}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-center font-bold ${clr} text-xs">${pctEmp}%</td>
       </tr>`;
     }).join('');
 }
@@ -949,25 +958,23 @@ function exportarPDF() {
     if (val === 'no-conforme') return 'X';
     return '--';
   };
-  const afMaq = (emp, insp) => emp.genero === 'M'
-    ? fStr(insp.criterios?.afeitado)
-    : fStr(insp.criterios?.maquillaje);
-
   const head = [[
-    { content: 'Nombre del Personal', styles: { halign:'left', minCellWidth:35 } },
-    'Salud',
-    'Uniforme',
-    'Calzado',
-    'Uñas',
-    'Cabello',
-    'Afeit./Maquil.',
-    'Objetos',
-    'Lavado',
-    { content: 'Observaciones', styles: { halign:'left' } },
-    { content: 'Acc. Correctiva', styles: { halign:'left' } },
-    '%'
+    { content: 'Nombre del Personal', styles: { halign:'left', minCellWidth:32 } },
+    { content: 'Estado de Salud / Sin Heridas', styles: { minCellWidth:18 } },
+    { content: 'Uniforme Completo y Limpio', styles: { minCellWidth:18 } },
+    { content: 'Calzado de Trabajo Limpio', styles: { minCellWidth:18 } },
+    { content: 'Uñas Cortas y Sin Esmalte', styles: { minCellWidth:18 } },
+    { content: 'Cabello Recogido / Cofia', styles: { minCellWidth:18 } },
+    { content: 'Afeitado / Sin Barba (M)', styles: { minCellWidth:18 } },
+    { content: 'Sin Maquillaje (F)', styles: { minCellWidth:18 } },
+    { content: 'Sin Objetos Personales', styles: { minCellWidth:18 } },
+    { content: 'Lavado de Manos', styles: { minCellWidth:18 } },
+    { content: 'Observaciones', styles: { halign:'left', minCellWidth:28 } },
+    { content: 'Acc. Correctiva', styles: { halign:'left', minCellWidth:28 } },
+    { content: '%', styles: { minCellWidth:12 } }
   ]];
 
+  const fStrNA = () => '--';
   const body = inspList.map(emp => {
     const insp = inspecciones[emp.id];
     const c = insp.criterios || {};
@@ -978,7 +985,8 @@ function exportarPDF() {
       fStr(c.calzado),
       fStr(c.unas),
       fStr(c.cabello),
-      afMaq(emp, insp),
+      emp.genero === 'M' ? fStr(c.afeitado)   : '--',
+      emp.genero === 'F' ? fStr(c.maquillaje) : '--',
       fStr(c.objetos),
       fStr(c.lavado),
       insp.obs || '-',
