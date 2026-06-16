@@ -351,7 +351,7 @@
 </div>
 
 <!-- TARJETA CENTRAL — confirmación de identidad (aparece al decir el número) -->
-<div id="vozEmpCentro" class="fixed inset-0 z-50 hidden items-center justify-center p-6 bg-black/20 backdrop-blur-sm">
+<div id="vozEmpCentro" class="fixed inset-0 z-50 items-center justify-center p-6 bg-black/20 backdrop-blur-sm" style="display:none">
   <div class="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl px-8 py-7 w-full max-w-xs text-center border border-gray-100 dark:border-gray-800">
     <div id="vozEmpAvatar" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 bg-blue-500"></div>
     <p id="vozEmpNombre" class="text-2xl font-extrabold text-gray-900 dark:text-white leading-tight"></p>
@@ -364,7 +364,7 @@
 </div>
 
 <!-- BANNER COMPACTO ARRIBA — visible durante la captura de obs/acción -->
-<div id="vozEmpBanner" class="fixed top-0 left-0 right-0 z-50 hidden items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-md px-4 py-2.5">
+<div id="vozEmpBanner" class="fixed top-0 left-0 right-0 z-50 items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-md px-4 py-2.5" style="display:none">
   <div id="vozEmpAvatarSm" class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-blue-500"></div>
   <div class="flex-1 min-w-0">
     <p id="vozEmpNombreSm" class="text-sm font-bold text-gray-900 dark:text-white truncate leading-tight"></p>
@@ -375,7 +375,7 @@
 </div>
 
 <!-- Modal Inspección -->
-<div id="modalInspeccion" class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-30 hidden items-center justify-center p-4">
+<div id="modalInspeccion" class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-30 items-center justify-center p-4" style="display:none">
   <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height:90vh">
     <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-gray-800">
       <div class="flex items-center gap-3">
@@ -753,30 +753,24 @@ function _empIni(emp) { return emp.nombre.split(' ').map(w=>w[0]).slice(0,2).joi
 function _empColor(emp) { return emp.genero==='F' ? 'bg-pink-500' : 'bg-blue-500'; }
 
 function mostrarTarjetaEmpleado(emp) {
-  // Ocultar banner, mostrar tarjeta centrada grande
-  document.getElementById('vozEmpBanner').classList.replace('flex','hidden');
-  document.getElementById('vozEmpBanner').classList.add('hidden');
-  const c = document.getElementById('vozEmpCentro');
+  document.getElementById('vozEmpBanner').style.display = 'none';
   const av = document.getElementById('vozEmpAvatar');
   av.textContent = _empIni(emp);
   av.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 ' + _empColor(emp);
   document.getElementById('vozEmpNombre').textContent = emp.nombre;
   document.getElementById('vozEmpDepto').textContent = emp.depto + ' · ' + (emp.genero==='F'?'Femenino':'Masculino');
-  c.classList.remove('hidden'); c.classList.add('flex');
+  document.getElementById('vozEmpCentro').style.display = 'flex';
 }
 
 function moverTarjetaArriba(emp, instr) {
-  // Ocultar centrada, mostrar banner compacto en la parte superior
-  const centro = document.getElementById('vozEmpCentro');
-  centro.classList.add('hidden'); centro.classList.remove('flex');
-  const banner = document.getElementById('vozEmpBanner');
+  document.getElementById('vozEmpCentro').style.display = 'none';
   const av = document.getElementById('vozEmpAvatarSm');
   av.textContent = _empIni(emp);
   av.className = 'w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ' + _empColor(emp);
   document.getElementById('vozEmpNombreSm').textContent = emp.nombre;
   document.getElementById('vozEmpDeptoSm').textContent = emp.depto;
   document.getElementById('vozEmpInstrSm').textContent = instr || '';
-  banner.classList.remove('hidden'); banner.classList.add('flex');
+  document.getElementById('vozEmpBanner').style.display = 'flex';
 }
 
 function actualizarBannerInstr(instr) {
@@ -785,10 +779,8 @@ function actualizarBannerInstr(instr) {
 }
 
 function ocultarTarjetaEmpleado() {
-  const centro = document.getElementById('vozEmpCentro');
-  const banner = document.getElementById('vozEmpBanner');
-  centro.classList.add('hidden'); centro.classList.remove('flex');
-  banner.classList.add('hidden'); banner.classList.remove('flex');
+  document.getElementById('vozEmpCentro').style.display = 'none';
+  document.getElementById('vozEmpBanner').style.display = 'none';
 }
 
 // ── NÚMEROS EN ESPAÑOL ────────────────────────────────────────────────────────
@@ -869,7 +861,7 @@ function procesarComando(cmd) {
       } else if (esObs) {
         // "[número] observaciones" — banner arriba + modal
         moverTarjetaArriba(emp, 'Marca los ítems y di el hallazgo');
-        abrirModalInspeccion(empActualIdx);
+        abrirModalInspeccion(empActualIdx, true);
         vozEstado = 'observacion';
         setVozPanel('📝', 'Marca los ítems observados y di el hallazgo');
       } else {
@@ -892,7 +884,7 @@ function procesarComando(cmd) {
       } else if (esObs) {
         // Tarjeta se mueve arriba como banner, modal abre con items
         moverTarjetaArriba(emp, 'Marca los ítems y di el hallazgo');
-        abrirModalInspeccion(empActualIdx);
+        abrirModalInspeccion(empActualIdx, true);
         vozEstado = 'observacion';
         setVozPanel('📝', 'Marca los ítems observados y di el hallazgo');
       } else {
@@ -970,7 +962,7 @@ function abrirModalEmpleado(id=null) {
 function cerrarModal() { document.getElementById('modalEmpleado').classList.add('hidden'); }
 
 // ─── MODAL INSPECCIÓN ─────────────────────────────────────────────────────────
-function abrirModalInspeccion(idx) {
+function abrirModalInspeccion(idx, desdeVoz = false) {
   if (idx < 0 || idx >= empleados.length) return;
   empActualIdx = idx;
   const emp = empleados[idx];
@@ -988,9 +980,9 @@ function abrirModalInspeccion(idx) {
   document.getElementById('obsEmpleadoModal').value = insp?.obs || '';
   document.getElementById('accEmpleadoModal').value = insp?.acc || '';
 
-  // Solo lectura
+  // Solo lectura: nunca en modo voz (jefe inspecciona activamente)
   const yaInsp = !!insp;
-  const soloLect = usuario.rol !== 'admin' && yaInsp;
+  const soloLect = !desdeVoz && usuario.rol !== 'admin' && yaInsp;
   window._soloLectura = soloLect;
   document.getElementById('modalInspBannerSL').classList.toggle('hidden', !soloLect);
   document.getElementById('obsEmpleadoModal').readOnly = soloLect;
@@ -998,17 +990,13 @@ function abrirModalInspeccion(idx) {
   document.getElementById('modalInspBtnConf').style.display = soloLect ? 'none' : '';
   document.getElementById('modalInspBtnSig').style.display  = soloLect ? 'none' : '';
 
-  renderCriteriosModal(); // también llama renderObsCardModal internamente
+  renderCriteriosModal();
   actualizarConformidadModal();
-  const m = document.getElementById('modalInspeccion');
-  m.classList.remove('hidden');
-  m.classList.add('flex');
+  document.getElementById('modalInspeccion').style.display = 'flex';
 }
 
 function cerrarModalInspeccion() {
-  const m = document.getElementById('modalInspeccion');
-  m.classList.add('hidden');
-  m.classList.remove('flex');
+  document.getElementById('modalInspeccion').style.display = 'none';
   window._soloLectura = false;
   cargarEmpleadoActual();
 }
