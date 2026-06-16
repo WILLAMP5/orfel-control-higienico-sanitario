@@ -350,17 +350,28 @@
   </div>
 </div>
 
-<!-- Tarjeta central de identificación por voz -->
-<div id="vozEmpCard" class="fixed inset-0 z-50 hidden items-center justify-center p-6 pointer-events-none">
-  <div class="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl px-8 py-7 w-full max-w-xs text-center border border-gray-100 dark:border-gray-800 pointer-events-auto">
+<!-- TARJETA CENTRAL — confirmación de identidad (aparece al decir el número) -->
+<div id="vozEmpCentro" class="fixed inset-0 z-50 hidden items-center justify-center p-6 bg-black/20 backdrop-blur-sm">
+  <div class="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl px-8 py-7 w-full max-w-xs text-center border border-gray-100 dark:border-gray-800">
     <div id="vozEmpAvatar" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 bg-blue-500"></div>
     <p id="vozEmpNombre" class="text-2xl font-extrabold text-gray-900 dark:text-white leading-tight"></p>
     <p id="vozEmpDepto" class="text-sm text-gray-400 dark:text-gray-500 mt-1.5"></p>
     <div class="mt-4 flex items-center justify-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 font-medium">
       <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-      <span id="vozEmpInstr">Di "todo conforme" u "observaciones"</span>
+      <span>Di "todo conforme" u "observaciones"</span>
     </div>
   </div>
+</div>
+
+<!-- BANNER COMPACTO ARRIBA — visible durante la captura de obs/acción -->
+<div id="vozEmpBanner" class="fixed top-0 left-0 right-0 z-50 hidden items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-md px-4 py-2.5">
+  <div id="vozEmpAvatarSm" class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-blue-500"></div>
+  <div class="flex-1 min-w-0">
+    <p id="vozEmpNombreSm" class="text-sm font-bold text-gray-900 dark:text-white truncate leading-tight"></p>
+    <p id="vozEmpDeptoSm" class="text-xs text-gray-400 truncate"></p>
+  </div>
+  <p id="vozEmpInstrSm" class="text-xs text-blue-600 dark:text-blue-400 font-semibold flex-shrink-0 text-right"></p>
+  <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></span>
 </div>
 
 <!-- Modal Inspección -->
@@ -737,23 +748,47 @@ function setVozPanel(estado, instruccion) {
   document.getElementById('vozStatus').textContent = instruccion;
 }
 
-// ── TARJETA CENTRAL DE EMPLEADO ───────────────────────────────────────────────
-function mostrarTarjetaEmpleado(emp, instr) {
-  const card = document.getElementById('vozEmpCard');
-  const ini = emp.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+// ── TARJETAS DE EMPLEADO (MODO CENTRADO Y MODO BANNER) ────────────────────────
+function _empIni(emp) { return emp.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function _empColor(emp) { return emp.genero==='F' ? 'bg-pink-500' : 'bg-blue-500'; }
+
+function mostrarTarjetaEmpleado(emp) {
+  // Ocultar banner, mostrar tarjeta centrada grande
+  document.getElementById('vozEmpBanner').classList.replace('flex','hidden');
+  document.getElementById('vozEmpBanner').classList.add('hidden');
+  const c = document.getElementById('vozEmpCentro');
   const av = document.getElementById('vozEmpAvatar');
-  av.textContent = ini;
-  av.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 ' + (emp.genero==='F'?'bg-pink-500':'bg-blue-500');
+  av.textContent = _empIni(emp);
+  av.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-white text-3xl font-extrabold mb-4 ' + _empColor(emp);
   document.getElementById('vozEmpNombre').textContent = emp.nombre;
   document.getElementById('vozEmpDepto').textContent = emp.depto + ' · ' + (emp.genero==='F'?'Femenino':'Masculino');
-  document.getElementById('vozEmpInstr').textContent = instr || 'Di "todo conforme" u "observaciones"';
-  card.classList.remove('hidden');
-  card.classList.add('flex');
+  c.classList.remove('hidden'); c.classList.add('flex');
 }
+
+function moverTarjetaArriba(emp, instr) {
+  // Ocultar centrada, mostrar banner compacto en la parte superior
+  const centro = document.getElementById('vozEmpCentro');
+  centro.classList.add('hidden'); centro.classList.remove('flex');
+  const banner = document.getElementById('vozEmpBanner');
+  const av = document.getElementById('vozEmpAvatarSm');
+  av.textContent = _empIni(emp);
+  av.className = 'w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ' + _empColor(emp);
+  document.getElementById('vozEmpNombreSm').textContent = emp.nombre;
+  document.getElementById('vozEmpDeptoSm').textContent = emp.depto;
+  document.getElementById('vozEmpInstrSm').textContent = instr || '';
+  banner.classList.remove('hidden'); banner.classList.add('flex');
+}
+
+function actualizarBannerInstr(instr) {
+  const el = document.getElementById('vozEmpInstrSm');
+  if (el) el.textContent = instr;
+}
+
 function ocultarTarjetaEmpleado() {
-  const card = document.getElementById('vozEmpCard');
-  card.classList.add('hidden');
-  card.classList.remove('flex');
+  const centro = document.getElementById('vozEmpCentro');
+  const banner = document.getElementById('vozEmpBanner');
+  centro.classList.add('hidden'); centro.classList.remove('flex');
+  banner.classList.add('hidden'); banner.classList.remove('flex');
 }
 
 // ── NÚMEROS EN ESPAÑOL ────────────────────────────────────────────────────────
@@ -807,10 +842,11 @@ function vozGuardarConObs(emp, obsTexto) {
 }
 
 // ── MÁQUINA DE ESTADOS DE VOZ ─────────────────────────────────────────────────
-// 'empleado'   → di número → muestra tarjeta central con nombre para confirmar
-// 'resultado'  → "todo conforme" graba directo | "observaciones" abre modal + espera obs
-// 'observacion'→ voz captura texto de hallazgo → llena textarea en modal
-// 'accion'     → voz captura acción correctiva → llena textarea → guarda y cierra
+// 'empleado'    → di número → tarjeta CENTRADA GRANDE con nombre para confirmar
+// 'resultado'   → "todo conforme" → graba directo y oculta tarjeta
+//                 "observaciones" → tarjeta se mueve ARRIBA (banner), modal abre
+// 'observacion' → voz captura hallazgo → banner actualiza instrucción
+// 'accion'      → voz captura acción → guarda todo, cierra modal, oculta banner
 function procesarComando(cmd) {
   switch (vozEstado) {
 
@@ -823,43 +859,42 @@ function procesarComando(cmd) {
       empActualIdx = num - 1;
       cargarEmpleadoActual();
       const emp = empleados[empActualIdx];
-
-      // Detectar si el resultado viene en el mismo utterance
       const resto = quitarNumeroInicio(cmd);
       const esConf = (resto.includes('conforme') || resto.includes('bien') || resto.includes('ok')) && !resto.includes('no conf');
-      const esObs  = resto.includes('observaci') || resto.includes('observacion') || resto.includes('observaciones');
+      const esObs  = resto.includes('observaci') || resto.includes('observaciones');
 
       if (esConf) {
+        // "[número] conforme" en un solo utterance — nunca aparece la tarjeta
         vozGuardarConforme(emp);
       } else if (esObs) {
-        ocultarTarjetaEmpleado();
+        // "[número] observaciones" — banner arriba + modal
+        moverTarjetaArriba(emp, 'Marca los ítems y di el hallazgo');
         abrirModalInspeccion(empActualIdx);
         vozEstado = 'observacion';
-        setVozPanel('📝 Modal abierto', 'Marca los ítems y di el hallazgo');
-        mostrarTarjetaEmpleado(emp, 'Marca los ítems no conformes, luego di el hallazgo');
+        setVozPanel('📝', 'Marca los ítems observados y di el hallazgo');
       } else {
-        // Solo número → mostrar tarjeta de confirmación, esperar resultado
+        // Solo número → tarjeta centrada grande para confirmar
+        mostrarTarjetaEmpleado(emp);
         vozEstado = 'resultado';
-        mostrarTarjetaEmpleado(emp, 'Di "todo conforme" u "observaciones"');
-        setVozPanel('👤 #' + num, emp.nombre + ' — Di "todo conforme" u "observaciones"');
+        setVozPanel('👤 #' + num, 'Di "todo conforme" u "observaciones"');
       }
       break;
     }
 
     case 'resultado': {
       const emp = empleados[empActualIdx];
-      const esConf = (cmd.includes('todo conforme') || cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('ok')) && !cmd.includes('no conf');
+      const esConf = (cmd.includes('conforme') || cmd.includes('bien') || cmd.includes('ok')) && !cmd.includes('no conf');
       const esObs  = cmd.includes('observaci') || cmd.includes('observaciones');
 
       if (esConf) {
-        ocultarTarjetaEmpleado();
+        // Tarjeta centrada desaparece, se guarda todo conforme
         vozGuardarConforme(emp);
       } else if (esObs) {
-        ocultarTarjetaEmpleado();
+        // Tarjeta se mueve arriba como banner, modal abre con items
+        moverTarjetaArriba(emp, 'Marca los ítems y di el hallazgo');
         abrirModalInspeccion(empActualIdx);
         vozEstado = 'observacion';
-        setVozPanel('📝 Escucha', 'Marca los ítems y di el hallazgo');
-        mostrarTarjetaEmpleado(emp, 'Marca los ítems no conformes, luego di el hallazgo');
+        setVozPanel('📝', 'Marca los ítems observados y di el hallazgo');
       } else {
         setVozPanel('❓', `"${cmd.slice(0,25)}" — Di "todo conforme" u "observaciones"`);
       }
@@ -868,16 +903,16 @@ function procesarComando(cmd) {
 
     case 'observacion': {
       const emp = empleados[empActualIdx];
-      // Llenar obs en inline y en modal
       document.getElementById('obsEmpleado').value = cmd;
       document.getElementById('obsEmpleadoModal').value = cmd;
       if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
       inspecciones[emp.id].obs = cmd;
       guardarObsEmpleado();
       renderObsCardModal();
+      // Banner sigue arriba, actualiza instrucción
+      actualizarBannerInstr('Di la Acción Correctiva...');
       vozEstado = 'accion';
       const prev = cmd.length > 30 ? cmd.slice(0,30) + '...' : cmd;
-      mostrarTarjetaEmpleado(emp, 'Di la Acción Correctiva...');
       setVozPanel('📝 "' + prev + '"', 'Di la Acción Correctiva...');
       break;
     }
@@ -895,6 +930,7 @@ function procesarComando(cmd) {
       poblarSelector();
       renderTablaEmpleados();
       renderObsCardModal();
+      // Ocultar TODO: banner y modal
       ocultarTarjetaEmpleado();
       cerrarModalInspeccion();
       vozEstado = 'empleado';
