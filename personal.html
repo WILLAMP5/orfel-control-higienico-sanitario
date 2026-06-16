@@ -351,6 +351,58 @@
   </div>
 </div>
 
+<!-- Modal Inspección -->
+<div id="modalInspeccion" class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-30 hidden items-center justify-center p-4">
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height:90vh">
+    <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-100 dark:border-gray-800">
+      <div class="flex items-center gap-3">
+        <div id="modalInspAvatar" class="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0 bg-green-600"></div>
+        <div>
+          <p id="modalInspNombre" class="font-bold text-gray-900 dark:text-white text-base"></p>
+          <p id="modalInspDepto" class="text-xs text-gray-500"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-center">
+          <div id="modalInspConf" class="text-xl font-extrabold text-green-600">—</div>
+          <div class="text-[10px] text-gray-400">Conform.</div>
+        </div>
+        <button onclick="cerrarModalInspeccion()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="modalInspBannerSL" class="hidden mx-4 mt-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-xl flex items-center gap-2">
+      <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM10 11V7a2 2 0 114 0v4"/></svg>
+      <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Inspección ya registrada — solo el Administrador puede modificarla.</p>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4 py-3">
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Criterios de Higiene</p>
+      <div id="criteriosContainerModal" class="space-y-1.5"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 mt-3 border-t border-gray-100 dark:border-gray-800">
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Observación</label>
+          <textarea id="obsEmpleadoModal" rows="2" placeholder="Describa el hallazgo..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Acción Correctiva</label>
+          <textarea id="accEmpleadoModal" rows="2" placeholder="Acción tomada..." class="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" oninput="guardarObsModal()"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 p-4 border-t border-gray-100 dark:border-gray-800 flex-wrap">
+      <button id="modalInspBtnConf" onclick="marcarTodoConformeModal()" class="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Todo Conforme
+      </button>
+      <div class="flex gap-2 ml-auto">
+        <button id="modalInspBtnSig" onclick="guardarYSiguienteModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">Guardar y Siguiente →</button>
+        <button onclick="guardarYCerrarModal()" class="px-4 py-2 border border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 text-sm font-semibold rounded-lg transition-colors">Terminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden">
   <div class="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium px-5 py-3 rounded-xl shadow-xl">
@@ -378,7 +430,7 @@ function intentarLogin() {
     iniciarApp();
   } else { const e=document.getElementById('loginErr'); e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3000); }
 }
-function logout() { if(!confirm('¿Cerrar sesión?')) return; localStorage.removeItem('authOrfel'); location.reload(); }
+function logout() { if(!confirm('¿Cerrar sesión?')) return; localStorage.removeItem('authOrfel'); window.location.href='index.html'; }
 function checkAuth() {
   const s=localStorage.getItem('authOrfel');
   if(s){usuario=JSON.parse(s);document.getElementById('loginOverlay').style.display='none';iniciarApp();}
@@ -493,6 +545,7 @@ function seleccionarEmpleado(id) {
   empActualIdx = empleados.findIndex(e=>e.id==id);
   criterioFocusIdx = 0;
   cargarEmpleadoActual();
+  abrirModalInspeccion(empActualIdx);
 }
 function cargarEmpleadoActual() {
   if (empActualIdx<0||empActualIdx>=empleados.length) return;
@@ -749,6 +802,14 @@ function procesarComando(cmd) {
     case 'accion': {
       const emp = empleados[empActualIdx];
       document.getElementById('accEmpleado').value = cmd;
+      // Marcar criterios pendientes como no-conforme (la observación implica hallazgo)
+      if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+      getCriterios(emp.genero).forEach(c => {
+        if (!inspecciones[emp.id].criterios[c.id] || inspecciones[emp.id].criterios[c.id] === 'pendiente') {
+          inspecciones[emp.id].criterios[c.id] = 'no-conforme';
+        }
+      });
+      actualizarConformidad();
       guardarObsEmpleado();
       guardarInspeccionEmpleado();
       poblarSelector();
@@ -786,6 +847,146 @@ function abrirModalEmpleado(id=null) {
   document.getElementById('modalEmpleado').classList.remove('hidden');
 }
 function cerrarModal() { document.getElementById('modalEmpleado').classList.add('hidden'); }
+
+// ─── MODAL INSPECCIÓN ─────────────────────────────────────────────────────────
+function abrirModalInspeccion(idx) {
+  if (idx < 0 || idx >= empleados.length) return;
+  empActualIdx = idx;
+  const emp = empleados[idx];
+
+  // Header
+  const ini = emp.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const av = document.getElementById('modalInspAvatar');
+  av.textContent = ini;
+  av.className = 'w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0 ' + (emp.genero==='F'?'bg-pink-500':'bg-blue-500');
+  document.getElementById('modalInspNombre').textContent = emp.nombre;
+  document.getElementById('modalInspDepto').textContent = emp.depto + ' · ' + (emp.genero==='F'?'Femenino':'Masculino');
+
+  // Obs/Acc
+  const insp = inspecciones[emp.id];
+  document.getElementById('obsEmpleadoModal').value = insp?.obs || '';
+  document.getElementById('accEmpleadoModal').value = insp?.acc || '';
+
+  // Solo lectura
+  const yaInsp = !!insp;
+  const soloLect = usuario.rol !== 'admin' && yaInsp;
+  window._soloLectura = soloLect;
+  document.getElementById('modalInspBannerSL').classList.toggle('hidden', !soloLect);
+  document.getElementById('obsEmpleadoModal').readOnly = soloLect;
+  document.getElementById('accEmpleadoModal').readOnly = soloLect;
+  document.getElementById('modalInspBtnConf').style.display = soloLect ? 'none' : '';
+  document.getElementById('modalInspBtnSig').style.display  = soloLect ? 'none' : '';
+
+  renderCriteriosModal();
+  actualizarConformidadModal();
+  const m = document.getElementById('modalInspeccion');
+  m.classList.remove('hidden');
+  m.classList.add('flex');
+}
+
+function cerrarModalInspeccion() {
+  const m = document.getElementById('modalInspeccion');
+  m.classList.add('hidden');
+  m.classList.remove('flex');
+  window._soloLectura = false;
+  cargarEmpleadoActual();
+}
+
+function setCriterioModal(idx, val) {
+  if (window._soloLectura) return;
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  const criterios = getCriterios(emp.genero);
+  inspecciones[emp.id].criterios[criterios[idx].id] = val;
+  actualizarConformidadModal();
+  renderCriteriosModal();
+  guardarInspecciones();
+}
+
+function renderCriteriosModal() {
+  const emp = empleados[empActualIdx];
+  if (!emp) return;
+  const criterios = getCriterios(emp.genero);
+  const insp = inspecciones[emp.id] || { criterios:{} };
+  const soloLectura = window._soloLectura || false;
+  const container = document.getElementById('criteriosContainerModal');
+  container.innerHTML = criterios.map((c,i) => {
+    const val = insp.criterios[c.id] || 'pendiente';
+    const vColor = val==='conforme'?'text-green-600':val==='no-conforme'?'text-red-600':'text-gray-400';
+    const vLabel = val==='conforme'?'✓ Conf.':val==='no-conforme'?'✗ No Conf.':val==='no-aplica'?'— N/A':'○ Pend.';
+    const btnsPart = soloLectura
+      ? `<span class="text-sm font-bold ${vColor}">${vLabel}</span>`
+      : `<button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-green-50 dark:hover:bg-green-950'}" onclick="setCriterioModal(${i},'conforme')">✓</button>
+        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-conforme'?'bg-red-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950'}" onclick="setCriterioModal(${i},'no-conforme')">✗</button>
+        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-aplica'?'bg-gray-500 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}" onclick="setCriterioModal(${i},'no-aplica')">N/A</button>
+        <span class="text-[10px] font-semibold w-16 text-right ${vColor}">${vLabel}</span>`;
+    return `<div class="flex items-center justify-between gap-3 rounded-xl p-2 border border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all">
+      <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">${c.label}</span>
+      <div class="flex items-center gap-1 flex-shrink-0">${btnsPart}</div>
+    </div>`;
+  }).join('');
+}
+
+function actualizarConformidadModal() {
+  const emp = empleados[empActualIdx];
+  const insp = inspecciones[emp?.id];
+  const el = document.getElementById('modalInspConf');
+  if (!insp || !emp) { el.textContent = '—'; el.className = 'text-xl font-extrabold text-gray-400'; return; }
+  const criterios = getCriterios(emp.genero);
+  const conformes = criterios.filter(c => insp.criterios[c.id]==='conforme');
+  const base = criterios.filter(c => insp.criterios[c.id]!=='no-aplica').length;
+  const pct = base > 0 ? Math.round(conformes.length/base*100) : 0;
+  insp.conformidad = pct;
+  el.textContent = pct+'%';
+  el.className = 'text-xl font-extrabold ' + (pct>=80?'text-green-600':pct>=50?'text-amber-500':'text-red-600');
+}
+
+function guardarObsModal() {
+  const emp = empleados[empActualIdx];
+  if (!emp) return;
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  inspecciones[emp.id].obs = document.getElementById('obsEmpleadoModal').value;
+  inspecciones[emp.id].acc = document.getElementById('accEmpleadoModal').value;
+  guardarInspecciones();
+}
+
+function marcarTodoConformeModal() {
+  if (window._soloLectura) return;
+  const emp = empleados[empActualIdx];
+  if (!inspecciones[emp.id]) inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:0, fecha: document.getElementById('fechaActual').value };
+  getCriterios(emp.genero).forEach(c => inspecciones[emp.id].criterios[c.id] = 'conforme');
+  actualizarConformidadModal();
+  renderCriteriosModal();
+  guardarInspecciones();
+  toast('✓ Todos conformes');
+}
+
+function guardarYSiguienteModal() {
+  guardarObsModal();
+  actualizarConformidadModal();
+  guardarInspecciones();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast('✓ ' + empleados[empActualIdx].nombre + ' guardado');
+  const nuevoIdx = empActualIdx + 1;
+  if (nuevoIdx < empleados.length) {
+    abrirModalInspeccion(nuevoIdx);
+  } else {
+    cerrarModalInspeccion();
+    toast('✓ Todos los empleados inspeccionados');
+  }
+}
+
+function guardarYCerrarModal() {
+  guardarObsModal();
+  actualizarConformidadModal();
+  guardarInspecciones();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast('✓ Inspección guardada — ' + empleados[empActualIdx].nombre);
+  cerrarModalInspeccion();
+}
+
 function guardarEmpleado() {
   const nombre = document.getElementById('empNombreInput').value.trim();
   const depto  = document.getElementById('empDeptoInput').value.trim();
@@ -831,6 +1032,7 @@ function renderTablaEmpleados() {
       <td class="py-2.5 px-2 text-xs text-gray-500">${e.genero==='F'?'♀ Fem.':'♂ Masc.'}</td>
       <td class="py-2.5 px-2"><span class="text-xs font-semibold px-2 py-0.5 rounded-full ${badgeCls}">${badgeTxt}</span></td>
       <td class="py-2.5 px-2 text-right">
+        <button onclick="seleccionarEmpleado(${e.id})" class="text-xs text-green-600 hover:text-green-700 font-semibold mr-3">Inspeccionar</button>
         <button onclick="abrirModalEmpleado(${e.id})" class="text-xs text-blue-500 hover:text-blue-700 mr-3">Editar</button>
         <button onclick="eliminarEmpleado(${e.id})" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>
       </td>
