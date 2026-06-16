@@ -888,36 +888,62 @@ function simularTodo() {
 function generarReporte() {
   let html = '<h3 class="text-base font-bold mb-4 text-blue-600 dark:text-blue-400">Resumen de Inspección</h3>';
   let total=0, conf=0, nconf=0;
-  estado.areas.forEach(area => {
-    let aHTML = '';
+
+  // Solo áreas que tienen al menos un ítem marcado
+  const areasInspeccionadas = estado.areas.filter(isAreaInspeccionada);
+
+  areasInspeccionadas.forEach(area => {
+    // Observación de área (voz) — aparece debajo del encabezado del área
+    const obsAreaBlock = (area.obs_voz || area.acc_voz) ? `
+      <div class="mb-3 p-2.5 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800 text-xs">
+        ${area.obs_voz ? `<p class="text-amber-700 dark:text-amber-400"><span class="font-bold">Observación del área:</span> ${area.obs_voz}</p>` : ''}
+        ${area.acc_voz ? `<p class="text-green-700 dark:text-green-400 mt-0.5"><span class="font-bold">Acción Correctiva:</span> ${area.acc_voz}</p>` : ''}
+      </div>` : '';
+
+    let itemsHTML = '';
     area.categorias.forEach(cat => {
       cat.elementos.forEach(el => {
         total++;
         if (el.estado==='conforme') conf++;
         else if (el.estado==='no-conforme') nconf++;
-        const color = el.estado==='conforme'?'text-green-600':el.estado==='no-conforme'?'text-red-600':'text-amber-500';
-        const icon = el.estado==='conforme'?'✓':el.estado==='no-conforme'?'✗':'○';
-        aHTML += `<div class="flex justify-between py-1 border-b border-gray-100 dark:border-gray-800 text-sm">
-          <span class="text-gray-700 dark:text-gray-300">${el.nombre}</span>
-          <span class="${color} font-semibold">${icon} ${el.estado}</span></div>`;
-        if (el.nc_obs) aHTML += `<p class="text-xs text-red-500 italic ml-4 mb-1">Obs: ${el.nc_obs}</p>`;
-        if (el.nc_acc) aHTML += `<p class="text-xs text-green-600 italic ml-4 mb-1">Acc: ${el.nc_acc}</p>`;
+        const color = el.estado==='conforme' ? 'text-green-600' : el.estado==='no-conforme' ? 'text-red-600' : 'text-amber-500';
+        const icon  = el.estado==='conforme' ? '✓' : el.estado==='no-conforme' ? '✗' : '○';
+        itemsHTML += `<div class="py-1 border-b border-gray-100 dark:border-gray-800">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-700 dark:text-gray-300">${el.nombre}</span>
+            <span class="${color} font-semibold whitespace-nowrap ml-2">${icon} ${el.estado==='conforme'?'Conforme':el.estado==='no-conforme'?'No Conforme':'Pendiente'}</span>
+          </div>`;
+        // Obs/acc del ítem (marcado manualmente como no-conforme) — debajo del ítem
+        if (el.nc_obs || el.nc_acc) {
+          itemsHTML += `<div class="mt-1 ml-3 pl-2 border-l-2 border-red-300 dark:border-red-700 mb-1">`;
+          if (el.nc_obs) itemsHTML += `<p class="text-xs text-red-600 dark:text-red-400"><span class="font-semibold">Obs:</span> ${el.nc_obs}</p>`;
+          if (el.nc_acc) itemsHTML += `<p class="text-xs text-green-600 dark:text-green-400"><span class="font-semibold">Acc.:</span> ${el.nc_acc}</p>`;
+          itemsHTML += `</div>`;
+        }
+        itemsHTML += `</div>`;
       });
     });
-    if (area.obs_voz || area.acc_voz) {
-      aHTML += `<div class="mt-2 p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800 text-xs">`;
-      if (area.obs_voz) aHTML += `<p class="text-amber-700 dark:text-amber-400"><b>Observación:</b> ${area.obs_voz}</p>`;
-      if (area.acc_voz) aHTML += `<p class="text-green-700 dark:text-green-400 mt-0.5"><b>Acción Correctiva:</b> ${area.acc_voz}</p>`;
-      aHTML += '</div>';
-    }
-    if (aHTML) html += `<div class="mb-4"><h4 class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">${area.nombre}</h4>${aHTML}</div>`;
+
+    html += `<div class="mb-5 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
+      <h4 class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">${area.nombre}</h4>
+      ${obsAreaBlock}${itemsHTML}
+    </div>`;
   });
+
+  if (!areasInspeccionadas.length) {
+    html += `<p class="text-sm text-gray-400 text-center py-6">No hay áreas inspeccionadas aún.</p>`;
+  }
+
   const pct = total ? Math.round(conf/total*100) : 0;
   const obs = document.getElementById('observaciones').value;
   const acc = document.getElementById('accionesCorrectivas').value;
-  if (obs) html += `<div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs font-bold text-gray-500 mb-1">OBSERVACIONES</p><p class="text-sm">${obs}</p></div>`;
-  if (acc) html += `<div class="mt-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg"><p class="text-xs font-bold text-green-700 mb-1">ACCIONES CORRECTIVAS</p><p class="text-sm">${acc}</p></div>`;
-  html = `<div class="grid grid-cols-3 gap-4 mb-6"><div class="text-center p-3 bg-green-50 dark:bg-green-950 rounded-xl"><div class="text-2xl font-extrabold text-green-600">${conf}</div><div class="text-xs text-gray-500">Conformes</div></div><div class="text-center p-3 bg-red-50 dark:bg-red-950 rounded-xl"><div class="text-2xl font-extrabold text-red-600">${nconf}</div><div class="text-xs text-gray-500">No Conf.</div></div><div class="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-xl"><div class="text-2xl font-extrabold text-blue-600">${pct}%</div><div class="text-xs text-gray-500">Cumplimiento</div></div></div>` + html;
+  if (obs) html += `<div class="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"><p class="text-xs font-bold text-gray-500 mb-1">OBSERVACIONES GENERALES</p><p class="text-sm">${obs}</p></div>`;
+  if (acc) html += `<div class="mt-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg"><p class="text-xs font-bold text-green-700 mb-1">ACCIONES CORRECTIVAS GENERALES</p><p class="text-sm">${acc}</p></div>`;
+  html = `<div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="text-center p-3 bg-green-50 dark:bg-green-950 rounded-xl"><div class="text-2xl font-extrabold text-green-600">${conf}</div><div class="text-xs text-gray-500">Conformes</div></div>
+    <div class="text-center p-3 bg-red-50 dark:bg-red-950 rounded-xl"><div class="text-2xl font-extrabold text-red-600">${nconf}</div><div class="text-xs text-gray-500">No Conf.</div></div>
+    <div class="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-xl"><div class="text-2xl font-extrabold text-blue-600">${pct}%</div><div class="text-xs text-gray-500">Cumplimiento</div></div>
+  </div>` + html;
   document.getElementById('reporteContenido').innerHTML = html;
 }
 
