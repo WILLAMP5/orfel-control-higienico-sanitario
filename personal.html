@@ -73,6 +73,7 @@
       <button class="tab-btn active text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('inspeccion',this)">Inspección</button>
       <button class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('empleados',this)">Empleados</button>
       <button class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap" onclick="switchTab('reporte',this)">Reportes</button>
+      <button id="tabAdmin" class="tab-btn text-sm px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-green-600 whitespace-nowrap hidden" onclick="switchTab('admin',this)">Administración</button>
     </div>
   </header>
 
@@ -147,6 +148,12 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Banner solo lectura para Jefe -->
+      <div id="bannerSoloLectura" class="hidden mb-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-xl flex items-center gap-2">
+        <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM10 11V7a2 2 0 114 0v4"/></svg>
+        <p class="text-xs text-amber-700 dark:text-amber-400 font-medium">Inspección ya registrada — solo el Administrador puede modificarla.</p>
       </div>
 
       <!-- Criterios -->
@@ -242,21 +249,80 @@
         Exportar Excel
       </button>
     </div>
-    <!-- Tabla resumen -->
+    <!-- Tabla tipo hoja — todos los criterios como columnas -->
     <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-sm">
-      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
-        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Inspecciones del Día</p>
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Control de Higiene del Personal — Hoja del Día</p>
+        <div class="text-xs text-gray-400">
+          <span class="text-green-600 font-bold">✓</span> Conforme &nbsp;
+          <span class="text-red-600 font-bold">✗</span> No Conforme &nbsp;
+          <span class="text-gray-400">—</span> N/A
+        </div>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="border-b border-gray-100 dark:border-gray-800">
-            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">Empleado</th>
-            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">Área</th>
-            <th class="text-center py-2 px-4 text-xs font-semibold text-gray-500">Conformidad</th>
-            <th class="text-left py-2 px-4 text-xs font-semibold text-gray-500">No Conformidades</th>
-          </tr></thead>
+        <table class="text-xs border-collapse min-w-full" id="tablaReporteWrapper">
+          <thead>
+            <tr class="bg-[#2c6e49] text-white text-center">
+              <th class="p-2 border border-green-800 text-left min-w-[130px]">Personal</th>
+              <th class="p-2 border border-green-800 min-w-[80px]">Área</th>
+              <th class="p-2 border border-green-800 min-w-[55px]">Salud</th>
+              <th class="p-2 border border-green-800 min-w-[55px]">Uniforme</th>
+              <th class="p-2 border border-green-800 min-w-[55px]">Calzado</th>
+              <th class="p-2 border border-green-800 min-w-[40px]">Uñas</th>
+              <th class="p-2 border border-green-800 min-w-[55px]">Cabello</th>
+              <th class="p-2 border border-green-800 min-w-[65px]">Afeit./ Maquil.</th>
+              <th class="p-2 border border-green-800 min-w-[55px]">Objetos</th>
+              <th class="p-2 border border-green-800 min-w-[50px]">Lavado</th>
+              <th class="p-2 border border-green-800 min-w-[120px] text-left">Observaciones</th>
+              <th class="p-2 border border-green-800 min-w-[120px] text-left">Acc. Correctiva</th>
+              <th class="p-2 border border-green-800 min-w-[40px]">%</th>
+            </tr>
+          </thead>
           <tbody id="tablaReporte"></tbody>
         </table>
+      </div>
+      <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400 text-center">
+        Firma del Jefe de Planta: _______________________ &nbsp;&nbsp;&nbsp; Fecha: <span id="fechaReportePie"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ADMIN ═══ -->
+  <div id="tab-admin" class="hidden fade-in">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 mb-4 shadow-sm">
+      <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-4">Administración del Sistema</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Simulación -->
+        <div class="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <h4 class="font-semibold text-blue-800 dark:text-blue-300">Simular Inspecciones</h4>
+          </div>
+          <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Genera inspecciones "todo conforme" para todos los empleados sin inspección hoy.</p>
+          <button onclick="simularInspecciones()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            Ejecutar Simulación
+          </button>
+        </div>
+        <!-- Desbloquear inspecciones -->
+        <div class="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+            <h4 class="font-semibold text-amber-800 dark:text-amber-300">Edición Admin</h4>
+          </div>
+          <p class="text-xs text-amber-600 dark:text-amber-400 mb-3">Como Administrador puedes editar cualquier inspección desde la pestaña Inspección.</p>
+          <span class="text-xs font-bold text-amber-700 dark:text-amber-400">✓ Acceso completo habilitado</span>
+        </div>
+        <!-- Restablecer datos -->
+        <div class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <h4 class="font-semibold text-red-800 dark:text-red-300">Limpiar Inspecciones</h4>
+          </div>
+          <p class="text-xs text-red-600 dark:text-red-400 mb-3">Elimina todas las inspecciones del día actual.</p>
+          <button onclick="limpiarInspecciones()" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            Limpiar Hoy
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -350,6 +416,7 @@ const KEY_INSP = 'controlHigiene';
 function iniciarApp() {
   document.getElementById('dispNombre').textContent = usuario.nombre;
   document.getElementById('fechaActual').value = new Date().toISOString().split('T')[0];
+  if (usuario.rol === 'admin') document.getElementById('tabAdmin').classList.remove('hidden');
 
   // Cargar empleados
   const savedEmp = localStorage.getItem(KEY_EMP);
@@ -446,6 +513,25 @@ function cargarEmpleadoActual() {
   document.getElementById('obsEmpleado').value = insp?.obs || '';
   document.getElementById('accEmpleado').value = insp?.acc || '';
 
+  // Read-only: jefe no puede modificar inspecciones ya guardadas
+  const yaInspeccionado = !!insp;
+  const soloLectura = usuario.rol !== 'admin' && yaInspeccionado;
+  window._soloLectura = soloLectura;
+
+  const banner = document.getElementById('bannerSoloLectura');
+  banner.classList.toggle('hidden', !soloLectura);
+
+  const obsEl = document.getElementById('obsEmpleado');
+  const accEl = document.getElementById('accEmpleado');
+  obsEl.readOnly = soloLectura;
+  accEl.readOnly = soloLectura;
+  obsEl.className = obsEl.className.replace(' bg-gray-50','') + (soloLectura ? ' bg-gray-50 dark:bg-gray-800/30' : '');
+
+  // Botones de acción: ocultar para jefe si ya inspeccionado
+  document.querySelectorAll('#inspCard .no-print button').forEach(btn => {
+    btn.style.display = soloLectura ? 'none' : '';
+  });
+
   renderCriterios();
   actualizarConformidad();
 }
@@ -453,22 +539,26 @@ function renderCriterios() {
   const emp = empleados[empActualIdx];
   const criterios = getCriterios(emp.genero);
   const insp = inspecciones[emp.id] || { criterios:{} };
+  const soloLectura = window._soloLectura || false;
   const container = document.getElementById('criteriosContainer');
   container.innerHTML = criterios.map((c,i) => {
     const val = insp.criterios[c.id] || 'pendiente';
     const isFocus = vozActiva && i===criterioFocusIdx;
     const focusCls = isFocus ? 'ring-2 ring-green-500' : '';
-    return `<div id="crit-${i}" class="flex items-center justify-between gap-3 rounded-xl p-2 ${focusCls} transition-all">
-      <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">${c.label}</span>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-green-50 dark:hover:bg-green-950'}"
+    const vColor = val==='conforme'?'text-green-600':val==='no-conforme'?'text-red-600':'text-gray-400';
+    const vLabel = val==='conforme'?'✓ Conf.':val==='no-conforme'?'✗ No Conf.':val==='no-aplica'?'— N/A':'○ Pend.';
+    const btnsPart = soloLectura
+      ? `<span class="text-sm font-bold ${vColor}">${vLabel}</span>`
+      : `<button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='conforme'?'bg-green-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-green-50 dark:hover:bg-green-950'}"
           onclick="setCriterio(${i},'conforme')">✓</button>
         <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-conforme'?'bg-red-600 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-red-50 dark:hover:bg-red-950'}"
           onclick="setCriterio(${i},'no-conforme')">✗</button>
         <button class="criteria-btn px-2.5 py-1 text-xs rounded-lg font-bold transition-colors ${val==='no-aplica'?'bg-gray-500 text-white':'border border-gray-200 dark:border-gray-600 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}"
           onclick="setCriterio(${i},'no-aplica')">N/A</button>
-        <span class="text-[10px] font-semibold w-16 text-right ${val==='conforme'?'text-green-600':val==='no-conforme'?'text-red-600':'text-gray-400'}">${val==='conforme'?'Conf.':val==='no-conforme'?'No Conf.':val==='no-aplica'?'N/A':'Pend.'}</span>
-      </div>
+        <span class="text-[10px] font-semibold w-16 text-right ${vColor}">${vLabel}</span>`;
+    return `<div id="crit-${i}" class="flex items-center justify-between gap-3 rounded-xl p-2 ${focusCls} transition-all">
+      <span class="text-sm text-gray-700 dark:text-gray-300 flex-1">${c.label}</span>
+      <div class="flex items-center gap-1 flex-shrink-0">${btnsPart}</div>
     </div>`;
   }).join('');
 }
@@ -787,7 +877,18 @@ function importarExcel(input) {
 }
 
 // ─── REPORTE ──────────────────────────────────────────────────────────────────
+function fmtCelda(val) {
+  if (val === 'conforme')    return '<span class="font-bold text-green-600 text-base">✓</span>';
+  if (val === 'no-conforme') return '<span class="font-bold text-red-600 text-base">✗</span>';
+  if (val === 'no-aplica')   return '<span class="text-gray-400 font-bold">—</span>';
+  return '<span class="text-gray-300">·</span>';
+}
+
 function generarReporte() {
+  const fecha = document.getElementById('fechaActual').value;
+  const fechaPie = document.getElementById('fechaReportePie');
+  if (fechaPie) fechaPie.textContent = fecha;
+
   const lista = Object.keys(inspecciones);
   const total = lista.length;
   const okCount = lista.filter(id=>inspecciones[id].conformidad>=80).length;
@@ -797,75 +898,139 @@ function generarReporte() {
     ['Total Insp.',total,'text-blue-600','bg-blue-50 dark:bg-blue-950'],
     ['OK (≥80%)',okCount,'text-green-600','bg-green-50 dark:bg-green-950'],
     ['Con obs.',total-okCount,'text-red-600','bg-red-50 dark:bg-red-950'],
-    ['Conformidad',pct+'%','text-purple-600','bg-purple-50 dark:bg-purple-950']
+    ['Conformidad',pct+'%','text-[#2c6e49]','bg-green-50 dark:bg-green-950']
   ].map(([label,val,color,bg])=>`<div class="rounded-xl p-4 text-center ${bg}"><div class="text-2xl font-extrabold ${color}">${val}</div><div class="text-xs text-gray-500 mt-1">${label}</div></div>`).join('');
 
   const tbody = document.getElementById('tablaReporte');
-  if (!total) { tbody.innerHTML='<tr><td colspan="4" class="text-center py-8 text-gray-400 text-sm">Sin inspecciones registradas hoy</td></tr>'; return; }
+  if (!total) {
+    tbody.innerHTML = '<tr><td colspan="13" class="text-center py-8 text-gray-400 text-sm">Sin inspecciones registradas hoy</td></tr>';
+    return;
+  }
+
   tbody.innerHTML = empleados
-    .filter(e=>inspecciones[e.id])
+    .filter(e => inspecciones[e.id])
     .map(e => {
       const insp = inspecciones[e.id];
-      const criterios = getCriterios(e.genero);
-      const noConf = criterios.filter(c=>insp.criterios[c.id]==='no-conforme').map(c=>c.label);
-      const clr = insp.conformidad>=80?'text-green-600':insp.conformidad>=50?'text-amber-500':'text-red-600';
-      return `<tr class="border-b border-gray-50 dark:border-gray-800">
-        <td class="py-2.5 px-4 font-medium text-gray-800 dark:text-gray-200">${e.nombre}</td>
-        <td class="py-2.5 px-4 text-sm text-gray-500">${e.depto}</td>
-        <td class="py-2.5 px-4 text-center font-bold ${clr}">${insp.conformidad}%</td>
-        <td class="py-2.5 px-4 text-xs text-red-500">${noConf.length?noConf.join(', '):'—'}</td>
+      const c = insp.criterios || {};
+      const pctEmp = insp.conformidad;
+      const clr = pctEmp >= 80 ? 'text-green-600' : pctEmp >= 50 ? 'text-amber-500' : 'text-red-600';
+      const afeitMaquil = e.genero === 'M' ? fmtCelda(c.afeitado) : fmtCelda(c.maquillaje);
+      return `<tr class="even:bg-gray-50 dark:even:bg-gray-800/20 border-b border-gray-100 dark:border-gray-800 text-center text-xs">
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">${e.nombre}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-500 whitespace-nowrap">${e.depto}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.salud)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.uniforme)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.calzado)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.unas)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.cabello)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${afeitMaquil}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.objetos)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700">${fmtCelda(c.lavado)}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400">${insp.obs||'—'}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 text-left text-gray-600 dark:text-gray-400">${insp.acc||'—'}</td>
+        <td class="p-2 border border-gray-200 dark:border-gray-700 font-bold ${clr}">${pctEmp}%</td>
       </tr>`;
     }).join('');
 }
 
-// ─── PDF ──────────────────────────────────────────────────────────────────────
+// ─── PDF — HOJA APAISADA (LANDSCAPE) COMO V7 ──────────────────────────────────
 function exportarPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const W = doc.internal.pageSize.width, H = doc.internal.pageSize.height, M=14;
-  const fecha = document.getElementById('fechaActual').value;
-  let y=10, pg=1;
-  function header() {
-    if(LOGO_BASE64) try{doc.addImage(LOGO_BASE64,'JPEG',M,8,28,18);}catch(e){}
-    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(31,41,55);
-    doc.text('Control de Higiene del Personal',W/2,15,{align:'center'});
-    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(75,85,99);
-    doc.text(`Fecha: ${fecha}  |  Inspector: ${usuario.nombre}`,W/2,22,{align:'center'});
-    doc.setDrawColor(229,231,235);doc.line(M,28,W-M,28);y=36;
-  }
-  function footer(){doc.setFontSize(8);doc.setTextColor(156,163,175);doc.line(M,H-12,W-M,H-12);doc.text(`Página ${pg}  |  ORFEL — Control Higiénico Sanitario`,W/2,H-7,{align:'center'});}
-  function checkY(n=12){if(y+n>H-18){footer();doc.addPage();pg++;header();}}
-  header();
+  const inspList = empleados.filter(e => inspecciones[e.id]);
+  if (!inspList.length) { toast('Sin inspecciones para exportar'); return; }
 
-  const inspList = empleados.filter(e=>inspecciones[e.id]);
-  inspList.forEach(emp => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('landscape');
+  const PW = doc.internal.pageSize.getWidth();
+  const PH = doc.internal.pageSize.getHeight();
+  const fecha = document.getElementById('fechaActual').value;
+
+  const fStr = (val) => {
+    if (val === 'conforme')    return '✓';
+    if (val === 'no-conforme') return 'X';
+    return '--';
+  };
+  const afMaq = (emp, insp) => emp.genero === 'M'
+    ? fStr(insp.criterios?.afeitado)
+    : fStr(insp.criterios?.maquillaje);
+
+  const head = [[
+    { content: 'Nombre del Personal', styles: { halign:'left', minCellWidth:35 } },
+    'Salud',
+    'Uniforme',
+    'Calzado',
+    'Uñas',
+    'Cabello',
+    'Afeit./Maquil.',
+    'Objetos',
+    'Lavado',
+    { content: 'Observaciones', styles: { halign:'left' } },
+    { content: 'Acc. Correctiva', styles: { halign:'left' } },
+    '%'
+  ]];
+
+  const body = inspList.map(emp => {
     const insp = inspecciones[emp.id];
-    const criterios = getCriterios(emp.genero);
-    checkY(16);
-    doc.setFillColor(240,253,244);doc.rect(M,y-5,W-M*2,12,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(22,101,52);
-    doc.text(emp.nombre,M+3,y);
-    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(75,85,99);
-    doc.text(emp.depto,M+3,y+6);
-    const clr = insp.conformidad>=80?[22,163,74]:insp.conformidad>=50?[245,158,11]:[220,38,38];
-    doc.setTextColor(...clr);doc.setFont('helvetica','bold');doc.setFontSize(12);
-    doc.text(insp.conformidad+'%',W-M-2,y+3,{align:'right'});
-    y+=16;
-    criterios.forEach(c => {
-      checkY(6);
-      const v = insp.criterios[c.id]||'pendiente';
-      const cclr = v==='conforme'?[22,163,74]:v==='no-conforme'?[220,38,38]:[156,163,175];
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(75,85,99);
-      doc.text('  • '+c.label,M+4,y);
-      doc.setTextColor(...cclr);doc.text(v==='conforme'?'✓':v==='no-conforme'?'✗':'—',W-M-2,y,{align:'right'});
-      y+=5;
-    });
-    if(insp.obs){checkY(8);doc.setFontSize(7);doc.setTextColor(107,114,128);const ls=doc.splitTextToSize('Obs: '+insp.obs,W-M*2-10);doc.text(ls,M+4,y);y+=ls.length*4;}
-    y+=5;
+    const c = insp.criterios || {};
+    return [
+      emp.nombre,
+      fStr(c.salud),
+      fStr(c.uniforme),
+      fStr(c.calzado),
+      fStr(c.unas),
+      fStr(c.cabello),
+      afMaq(emp, insp),
+      fStr(c.objetos),
+      fStr(c.lavado),
+      insp.obs || '-',
+      insp.acc || '-',
+      (insp.conformidad || 0) + '%'
+    ];
   });
-  footer();
+
+  // Encabezado de página
+  const addHeader = () => {
+    if (LOGO_BASE64) try { doc.addImage(LOGO_BASE64, 'JPEG', 15, 5, 25, 18); } catch(e) {}
+    doc.setFontSize(13); doc.setTextColor(44,110,73);
+    doc.text('CONTROL DE ESTADO DE HIGIENE E INDUMENTARIA DEL PERSONAL', PW/2, 14, { align:'center' });
+    doc.setFontSize(9); doc.setTextColor(100,100,100);
+    doc.text(`Fecha: ${new Date(fecha+'T00:00:00').toLocaleDateString('es-PE', {weekday:'long',day:'numeric',month:'long',year:'numeric'})}`, PW/2, 21, { align:'center' });
+    return 28;
+  };
+
+  doc.autoTable({
+    head, body,
+    startY: addHeader(),
+    theme: 'grid',
+    headStyles: { fillColor:[44,110,73], textColor:255, fontStyle:'bold', halign:'center', valign:'middle', fontSize:7, cellPadding:1.5 },
+    styles: { fontSize:8, cellPadding:1.5, halign:'center', valign:'middle' },
+    columnStyles: {
+      0: { halign:'left', minCellWidth:35 },
+      9: { halign:'left', minCellWidth:30, fontSize:7 },
+      10: { halign:'left', minCellWidth:30, fontSize:7 },
+      11: { fontStyle:'bold' }
+    },
+    didParseCell(data) {
+      if (data.section === 'body') {
+        if (data.cell.raw === '✓') { data.cell.styles.textColor = [34,197,94]; data.cell.styles.fontStyle = 'bold'; }
+        if (data.cell.raw === 'X') { data.cell.styles.textColor = [220,38,38]; data.cell.styles.fontStyle = 'bold'; }
+      }
+    },
+    didDrawPage(data) {
+      const footerY = PH - 18;
+      doc.setFontSize(8); doc.setTextColor(100);
+      doc.text('Leyenda:', 15, footerY);
+      doc.setTextColor(34,197,94); doc.text('✓ Conforme', 38, footerY);
+      doc.setTextColor(220,38,38); doc.text('X No Conforme', 68, footerY);
+      doc.setTextColor(100); doc.text('-- No Aplica', 104, footerY);
+      doc.line(PW/2-50, PH-24, PW/2+50, PH-24);
+      doc.text('Jefe de Planta', PW/2, PH-19, { align:'center' });
+      doc.text(`Página ${data.pageNumber}`, PW-15, PH-7, { align:'right' });
+    },
+    margin: { top:10, bottom:28, left:15, right:15 }
+  });
+
   doc.save(`Higiene-Personal-ORFEL-${fecha.replace(/-/g,'')}.pdf`);
-  toast('📄 PDF generado');
+  toast('📄 PDF generado (hoja apaisada)');
 }
 
 // ─── EXPORTAR EXCEL (CSV) ─────────────────────────────────────────────────────
@@ -885,9 +1050,38 @@ function exportarExcel() {
   toast('📊 Excel exportado');
 }
 
+// ─── SIMULACIÓN (ADMIN) ───────────────────────────────────────────────────────
+function simularInspecciones() {
+  if (!empleados.length) { toast('Sin empleados para simular'); return; }
+  const hoy = document.getElementById('fechaActual').value;
+  let generados = 0;
+  empleados.forEach(emp => {
+    if (!inspecciones[emp.id]) {
+      inspecciones[emp.id] = { criterios:{}, obs:'', acc:'', conformidad:100, fecha:hoy };
+      getCriterios(emp.genero).forEach(c => inspecciones[emp.id].criterios[c.id] = 'conforme');
+      generados++;
+    }
+  });
+  if (!generados) { toast('Todos los empleados ya tienen inspección hoy'); return; }
+  guardarInspecciones();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast(`✓ Simulación: ${generados} inspección(es) conformes generadas`);
+}
+
+function limpiarInspecciones() {
+  if (!Object.keys(inspecciones).length) { toast('No hay inspecciones que limpiar'); return; }
+  if (!confirm(`¿Eliminar todas las inspecciones de hoy? (${Object.keys(inspecciones).length} registros)`)) return;
+  inspecciones = {};
+  guardarInspecciones();
+  poblarSelector();
+  renderTablaEmpleados();
+  toast('○ Inspecciones del día eliminadas');
+}
+
 // ─── UI ───────────────────────────────────────────────────────────────────────
 function switchTab(id,btn) {
-  ['inspeccion','empleados','reporte'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
+  ['inspeccion','empleados','reporte','admin'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
   document.getElementById('tab-'+id).classList.remove('hidden');
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
