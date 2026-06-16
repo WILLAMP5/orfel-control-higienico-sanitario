@@ -157,8 +157,10 @@
       </div>
     </div>
 
-    <!-- Áreas -->
-    <h2 class="text-base font-bold text-gray-700 dark:text-gray-300 mb-3 px-1">Áreas de Inspección</h2>
+    <!-- Resumen de Áreas -->
+    <div id="resumenAreas" class="mb-4"></div>
+
+    <!-- Áreas (sólo inspeccionadas o activa en voz/manual) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4" id="areasContainer"></div>
 
     <!-- Observaciones -->
@@ -376,7 +378,7 @@ function intentarLogin() {
   const p = document.getElementById('loginPass').value;
   if (USUARIOS[u] && USUARIOS[u].pass === p) {
     usuario = { ...USUARIOS[u], user: u };
-    localStorage.setItem('authOrfel', JSON.stringify(usuario));
+    sessionStorage.setItem('authOrfel', JSON.stringify(usuario));
     document.getElementById('loginOverlay').style.display = 'none';
     iniciarApp();
   } else {
@@ -387,11 +389,11 @@ function intentarLogin() {
 }
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
-  localStorage.removeItem('authOrfel');
-  location.reload();
+  sessionStorage.removeItem('authOrfel');
+  window.location.href = 'index.html';
 }
 function checkAuth() {
-  const saved = localStorage.getItem('authOrfel');
+  const saved = sessionStorage.getItem('authOrfel');
   if (saved) { usuario = JSON.parse(saved); document.getElementById('loginOverlay').style.display = 'none'; iniciarApp(); }
 }
 
@@ -400,7 +402,40 @@ let estado = { areas: JSON.parse(JSON.stringify(AREAS)), bloqueado: false, fecha
 let vozActiva = false, recognition = null;
 let vozEstadoSan = 'area'; // area | resultado | observacion | accion
 let areaActualVozIdx = -1;
+let areaSeleccionadaIdx = -1; // área pendiente seleccionada manualmente
 let LOGO_BASE64 = '';
+
+function isAreaInspeccionada(area) {
+  return area.categorias.some(cat => cat.elementos.some(el => el.estado && el.estado !== 'pendiente'));
+}
+function isAreaCompleta(area) {
+  return area.categorias.every(cat => cat.elementos.every(el => el.estado && el.estado !== 'pendiente'));
+}
+function scrollToResumen() {
+  const el = document.getElementById('resumenAreas');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function scrollToArea(aIdx) {
+  // Si el área no está visible aún, seleccionarla para que aparezca
+  if (!isAreaInspeccionada(estado.areas[aIdx]) && areaActualVozIdx !== aIdx) {
+    areaSeleccionadaIdx = aIdx;
+    renderAreas();
+  }
+  setTimeout(() => {
+    const card = document.getElementById(`area-card-${aIdx}`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+function seleccionarAreaPendiente(aIdx) {
+  areaSeleccionadaIdx = (areaSeleccionadaIdx === aIdx) ? -1 : aIdx;
+  renderAreas();
+  if (areaSeleccionadaIdx === aIdx) {
+    setTimeout(() => {
+      const card = document.getElementById(`area-card-${aIdx}`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  }
+}
 
 function iniciarApp() {
   // Mostrar usuario
@@ -453,39 +488,103 @@ function iniciarApp() {
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function renderAreas() {
+  // ── 1. Panel resumen de áreas ─────────────────────────────────────────────
+  const resumenEl = document.getElementById('resumenAreas');
+  const completadas = estado.areas.filter(isAreaCompleta).length;
+  const chips = estado.areas.map((area, i) => {
+    const completa = isAreaCompleta(area);
+    const parcial  = !completa && isAreaInspeccionada(area);
+    const cls = completa
+      ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+      : parcial
+        ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+        : 'bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700';
+    const icon = completa ? '✓' : parcial ? '◑' : '○';
+    const short = area.nombre.replace(/^(ÁREA DE |ALMACÉN DE |ACOPIO DE |SS\.HH\.,\s*)/i,'').split(' ').slice(0,2).join(' ');
+    return `<button onclick="scrollToArea(${i})" class="text-xs font-semibold px-3 py-1.5 rounded-full border ${cls} whitespace-nowrap transition-colors">${icon} ${short}</button>`;
+  }).join('');
+  resumenEl.innerHTML = `
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Resumen de Áreas</p>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${completadas===estado.areas.length?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}">${completadas}/${estado.areas.length} completas</span>
+      </div>
+      <div class="flex flex-wrap gap-2">${chips}</div>
+    </div>`;
+
+  // ── 2. Construir tarjetas de área ─────────────────────────────────────────
   const container = document.getElementById('areasContainer');
   container.innerHTML = '';
+
+  // Caja de pendientes
+  const pendientes = estado.areas.filter(a => !isAreaInspeccionada(a));
+  if (pendientes.length) {
+    const pendDiv = document.createElement('div');
+    pendDiv.className = 'lg:col-span-2 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 rounded-xl p-4 shadow-sm';
+    const pendChips = estado.areas.map((area, i) => {
+      if (isAreaInspeccionada(area)) return '';
+      const active = i === areaSeleccionadaIdx || (vozActiva && i === areaActualVozIdx);
+      const short = area.nombre.replace(/^(ÁREA DE |ALMACÉN DE |ACOPIO DE |SS\.HH\.,\s*)/i,'').split(' ').slice(0,2).join(' ');
+      const cls = active
+        ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 border-red-400 ring-2 ring-red-300'
+        : 'bg-white dark:bg-red-900 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-800';
+      return `<button onclick="seleccionarAreaPendiente(${i})" class="text-xs font-semibold px-3 py-1.5 rounded-full border ${cls} whitespace-nowrap transition-colors">● ${short}</button>`;
+    }).filter(s=>s).join('');
+    pendDiv.innerHTML = `
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-sm font-bold text-red-700 dark:text-red-300">Áreas Pendientes — ${pendientes.length} sin inspeccionar</p>
+        <p class="text-xs text-red-500 dark:text-red-400 ml-1">(toca un área para abrirla)</p>
+      </div>
+      <div class="flex flex-wrap gap-2">${pendChips}</div>`;
+    container.appendChild(pendDiv);
+  }
+
+  // Tarjetas completas: solo áreas inspeccionadas o la activa (voz/selección)
   estado.areas.forEach((area, aIdx) => {
+    const insp = isAreaInspeccionada(area);
     const isVozArea = vozActiva && areaActualVozIdx === aIdx;
+    const isSel = areaSeleccionadaIdx === aIdx;
+    if (!insp && !isVozArea && !isSel) return;
+
     const card = document.createElement('div');
     card.id = `area-card-${aIdx}`;
-    card.className = 'bg-white dark:bg-gray-900 rounded-xl shadow-sm overflow-hidden transition-all duration-300 '
-      + (isVozArea
-        ? 'border-2 border-blue-500 ring-2 ring-blue-300 dark:ring-blue-800'
-        : 'border border-gray-200 dark:border-gray-800');
+    const completa = isAreaCompleta(area);
+    const borderCls = isVozArea
+      ? 'border-2 border-blue-500 ring-2 ring-blue-300 dark:ring-blue-800'
+      : completa
+        ? 'border-2 border-green-400 dark:border-green-600'
+        : 'border border-gray-200 dark:border-gray-800';
+    card.className = `bg-white dark:bg-gray-900 rounded-xl shadow-sm overflow-hidden transition-all duration-300 ${borderCls}`;
+
+    const headerBg = isVozArea
+      ? 'bg-blue-50 dark:bg-blue-950'
+      : completa ? 'bg-green-50 dark:bg-green-950' : 'bg-gray-50 dark:bg-gray-800';
+    const headerTxt = isVozArea ? 'text-blue-700 dark:text-blue-300' : completa ? 'text-green-700 dark:text-green-300' : 'text-gray-800 dark:text-gray-200';
+    const statusBadge = isVozArea
+      ? '<span class="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">● VOZ ACTIVA</span>'
+      : completa ? '<span class="text-xs font-bold text-green-600 dark:text-green-400">✓ Completa</span>'
+      : isSel ? `<button onclick="seleccionarAreaPendiente(${aIdx})" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">✕ Cerrar</button>` : '';
 
     const obsVoz = area.obs_voz || '';
     const accVoz = area.acc_voz || '';
     const obsBlock = (obsVoz || accVoz) ? `
-      <div class="mx-4 mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 space-y-2">
+      <div class="mx-4 mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 space-y-1">
         ${obsVoz ? `<p class="text-xs text-amber-700 dark:text-amber-400"><span class="font-bold">Obs:</span> ${obsVoz}</p>` : ''}
-        ${accVoz ? `<p class="text-xs text-green-700 dark:text-green-400"><span class="font-bold">Acc. Correctiva:</span> ${accVoz}</p>` : ''}
+        ${accVoz ? `<p class="text-xs text-green-700 dark:text-green-400"><span class="font-bold">Acc.:</span> ${accVoz}</p>` : ''}
       </div>` : '';
 
     card.innerHTML = `
-      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 ${isVozArea ? 'bg-blue-50 dark:bg-blue-950' : 'bg-gray-50 dark:bg-gray-800'} flex items-center justify-between">
-        <h3 class="text-sm font-bold ${isVozArea ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}">${isVozArea ? '📍 ' : ''}${area.nombre}</h3>
-        ${isVozArea ? '<span class="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse">● VOZ ACTIVA</span>' : ''}
+      <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 ${headerBg} flex items-center justify-between gap-2">
+        <h3 class="text-sm font-bold ${headerTxt} truncate">${isVozArea ? '📍 ' : ''}${area.nombre}</h3>
+        ${statusBadge}
       </div>
       <div class="p-4 space-y-4">
         ${area.categorias.map((cat, cIdx) => `
           <div>
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">${cat.nombre}</p>
-            <div class="space-y-2">
-              ${cat.elementos.map((el, eIdx) => renderElemento(aIdx, cIdx, eIdx, el)).join('')}
-            </div>
-          </div>
-        `).join('')}
+            <div class="space-y-2">${cat.elementos.map((el, eIdx) => renderElemento(aIdx, cIdx, eIdx, el)).join('')}</div>
+          </div>`).join('')}
       </div>
       ${obsBlock}`;
     container.appendChild(card);
@@ -527,6 +626,10 @@ function setEstado(aIdx, cIdx, eIdx, estado_) {
   const el = estado.areas[aIdx].categorias[cIdx].elementos[eIdx];
   el.estado = estado_;
   if (estado_ !== 'no-conforme') { delete el.nc_obs; delete el.nc_acc; }
+  // Si el área manual acaba de ser marcada por primera vez, ya no es "seleccionada pendiente"
+  if (areaSeleccionadaIdx === aIdx && isAreaInspeccionada(estado.areas[aIdx])) {
+    areaSeleccionadaIdx = -1;
+  }
   guardarSilencioso();
   actualizarResumen();
   renderAreas();
@@ -639,15 +742,17 @@ function procesarComando(cmd) {
       const idx = detectarArea(cmd);
       if (idx >= 0) {
         areaActualVozIdx = idx;
+        areaSeleccionadaIdx = -1;
         vozEstadoSan = 'resultado';
         const nombre = estado.areas[idx].nombre;
         setVozPanel('📍', nombre, 'Di "todo conforme" u "observado"', 'RESULTADO');
         document.getElementById('vozGuia').classList.add('hidden');
         setVozStatus(`Área: ${nombre}`);
         renderAreas();
+        // Scroll hacia los ítems del área
         setTimeout(() => {
           const card = document.getElementById(`area-card-${idx}`);
-          if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+          if (card) card.scrollIntoView({ behavior:'smooth', block:'start' });
         }, 200);
       } else {
         setVozStatus(`No reconocí el área: "${cmd}"`);
@@ -671,6 +776,8 @@ function procesarComando(cmd) {
         setVozStatus('✓ Todo conforme registrado');
         renderAreas();
         toast('✓', area.nombre + ': Todo conforme');
+        // Volver arriba al resumen de áreas
+        setTimeout(scrollToResumen, 350);
       } else if (cmd.includes('observ')) {
         const restoTexto = cmd.replace(/^.*?observ[a-zó]*/i, '').trim();
         if (restoTexto.length > 3) {
@@ -690,6 +797,7 @@ function procesarComando(cmd) {
         setVozPanel('🎙', 'Esperando área...', 'Di el nombre del área a inspeccionar', 'ÁREA');
         document.getElementById('vozGuia').classList.remove('hidden');
         renderAreas();
+        setTimeout(scrollToResumen, 350);
       } else {
         setVozStatus(`Di "todo conforme" u "observado" — escuché: "${cmd}"`);
       }
@@ -716,6 +824,8 @@ function procesarComando(cmd) {
       setVozStatus('Observación y acción guardadas');
       renderAreas();
       toast('📝', 'Observación registrada en ' + nombreArea);
+      // Volver arriba al resumen de áreas
+      setTimeout(scrollToResumen, 350);
       break;
     }
   }
